@@ -1,0 +1,6 @@
+{
+  "name": "MedExam - Postgraduate Medical Portal",
+  "description": "Comprehensive postgraduate medical examination portal for FCPS, MS, MD, MRCS, MRCP, and MBBS candidates in Bangladesh with mock exam simulator, recall question bank, study groups, and post-exam analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
