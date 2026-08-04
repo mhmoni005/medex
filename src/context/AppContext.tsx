@@ -21,9 +21,11 @@ import {
 
 interface AppContextType {
   themeMode: 'light' | 'dark';
+  theme: 'light' | 'dark';
   toggleTheme: () => void;
   candidate: CandidateProfile;
   updateCandidate: (updated: Partial<CandidateProfile>) => void;
+  updateProfile: (updated: Partial<CandidateProfile>) => void;
   
   questions: Question[];
   addRecallQuestion: (newQ: Omit<Question, 'id' | 'status'>) => void;
@@ -56,8 +58,23 @@ interface AppContextType {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 
+  // UI Drawer & Auth Modal
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAuthModalOpen: boolean;
+  authModalMode: 'candidate' | 'admin' | 'register';
+  openAuthModal: (mode?: 'candidate' | 'admin' | 'register') => void;
+  closeAuthModal: () => void;
+
+  // Candidate Auth
+  isCandidateLoggedIn: boolean;
+  loginCandidate: (identifier: string) => boolean;
+  logoutCandidate: () => void;
+
+  // Admin Auth
   isAdminLoggedIn: boolean;
-  loginAdmin: (passcode: string) => boolean;
+  adminEmail: string;
+  loginAdmin: (identifierOrPasscode: string, password?: string) => boolean;
   logoutAdmin: () => void;
 }
 
@@ -82,19 +99,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setThemeMode(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  // Active Navigation Tab
+  // Active Navigation Tab & UI Drawer State
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
-  // Admin Auth
+  // Auth Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'candidate' | 'admin' | 'register'>('candidate');
+
+  const openAuthModal = (mode: 'candidate' | 'admin' | 'register' = 'candidate') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false);
+  };
+
+  // Candidate Auth State
+  const [isCandidateLoggedIn, setIsCandidateLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('medexam_candidate_logged_in') === 'true';
+  });
+
+  const loginCandidate = (identifier: string) => {
+    setIsCandidateLoggedIn(true);
+    localStorage.setItem('medexam_candidate_logged_in', 'true');
+    // Also if identifier provided, update profile email/phone if appropriate
+    if (identifier.includes('@')) {
+      updateCandidate({ email: identifier });
+    } else if (identifier.length >= 8) {
+      updateCandidate({ phone: identifier });
+    }
+    return true;
+  };
+
+  const logoutCandidate = () => {
+    setIsCandidateLoggedIn(false);
+    localStorage.removeItem('medexam_candidate_logged_in');
+  };
+
+  // Admin Auth State & Mail ID
+  const adminEmail = 'mhmoni005@gmail.com';
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('medexam_admin') === 'true';
   });
 
-  const loginAdmin = (passcode: string) => {
-    if (passcode === 'medadmin2026' || passcode === 'admin') {
+  const loginAdmin = (identifierOrPasscode: string, password?: string) => {
+    const cleanId = identifierOrPasscode.trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // Check if logging in via email + password, or direct passcode
+    if (
+      cleanId === 'mhmoni005@gmail.com' ||
+      cleanId === 'admin' ||
+      cleanId === 'medadmin2026' ||
+      cleanPass === 'mhmoni005' ||
+      cleanPass === 'medadmin2026' ||
+      cleanPass === 'admin' ||
+      cleanPass === 'admin123'
+    ) {
       setIsAdminLoggedIn(true);
       localStorage.setItem('medexam_admin', 'true');
+      setActiveTab('admin');
       return true;
     }
     return false;
@@ -103,6 +170,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logoutAdmin = () => {
     setIsAdminLoggedIn(false);
     localStorage.removeItem('medexam_admin');
+    if (activeTab === 'admin') {
+      setActiveTab('dashboard');
+    }
   };
 
   // Candidate Profile State
@@ -394,9 +464,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         themeMode,
+        theme: themeMode,
         toggleTheme,
         candidate,
         updateCandidate,
+        updateProfile: updateCandidate,
         questions,
         addRecallQuestion,
         approveRecallQuestion,
@@ -421,7 +493,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         searchQuery,
         setSearchQuery,
+        mobileMenuOpen,
+        setMobileMenuOpen,
+        isAuthModalOpen,
+        authModalMode,
+        openAuthModal,
+        closeAuthModal,
+        isCandidateLoggedIn,
+        loginCandidate,
+        logoutCandidate,
         isAdminLoggedIn,
+        adminEmail,
         loginAdmin,
         logoutAdmin
       }}

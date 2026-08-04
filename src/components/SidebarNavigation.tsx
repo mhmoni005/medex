@@ -15,15 +15,26 @@ import {
 } from 'lucide-react';
 
 interface SidebarNavigationProps {
-  mobileMenuOpen: boolean;
-  setMobileMenuOpen: (open: boolean) => void;
+  mobileMenuOpen?: boolean;
+  setMobileMenuOpen?: (open: boolean) => void;
 }
 
 export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
-  mobileMenuOpen,
-  setMobileMenuOpen
+  mobileMenuOpen: customMobileMenuOpen,
+  setMobileMenuOpen: customSetMobileMenuOpen
 }) => {
-  const { activeTab, setActiveTab, candidate, isAdminLoggedIn } = useApp();
+  const {
+    activeTab,
+    setActiveTab,
+    candidate,
+    isAdminLoggedIn,
+    mobileMenuOpen: contextMobileOpen,
+    setMobileMenuOpen: contextSetMobileOpen,
+    openAuthModal
+  } = useApp();
+
+  const isMobileOpen = customMobileMenuOpen !== undefined ? customMobileMenuOpen : contextMobileOpen;
+  const setMobileOpen = customSetMobileMenuOpen || contextSetMobileOpen;
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,20 +45,22 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
     { id: 'forum', label: 'Discussion Forum', icon: Users },
     { id: 'subscriptions', label: 'Subscription & Gateway', icon: CreditCard, highlight: true },
     { id: 'profile_settings', label: 'Candidate Profile & BMDC', icon: UserCheck },
-    { id: 'admin', label: 'Faculty Supervisor Panel', icon: ShieldAlert, badge: isAdminLoggedIn ? 'Active' : 'Passcode' }
+    { id: 'admin', label: 'Admin Dashboard', icon: ShieldAlert, badge: isAdminLoggedIn ? 'Active' : 'Faculty Admin' }
   ];
 
   const handleSelectTab = (id: string) => {
     setActiveTab(id);
-    setMobileMenuOpen(false);
+    if (setMobileOpen) {
+      setMobileOpen(false);
+    }
   };
 
   return (
     <>
       {/* Overlay for mobile drawer */}
-      {mobileMenuOpen && (
+      {isMobileOpen && (
         <div
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => setMobileOpen && setMobileOpen(false)}
           className="fixed inset-0 z-30 bg-slate-950/80 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
@@ -55,7 +68,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
       {/* Sidebar Container */}
       <aside
         className={`fixed lg:sticky top-[65px] left-0 z-30 h-[calc(100vh-65px)] w-64 bg-slate-900 dark:bg-slate-950 border-r border-slate-800 text-slate-300 p-4 flex flex-col justify-between transition-transform duration-300 ease-in-out ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Top Candidate Target Box */}

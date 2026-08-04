@@ -17,15 +17,15 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  onOpenAuth: () => void;
-  mobileMenuOpen: boolean;
-  setMobileMenuOpen: (open: boolean) => void;
+  onOpenAuth?: () => void;
+  mobileMenuOpen?: boolean;
+  setMobileMenuOpen?: (open: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  onOpenAuth,
-  mobileMenuOpen,
-  setMobileMenuOpen
+  onOpenAuth: customOpenAuth,
+  mobileMenuOpen: customMobileMenuOpen,
+  setMobileMenuOpen: customSetMobileMenuOpen
 }) => {
   const {
     candidate,
@@ -35,8 +35,30 @@ export const Header: React.FC<HeaderProps> = ({
     searchQuery,
     setSearchQuery,
     isAdminLoggedIn,
-    logoutAdmin
+    logoutAdmin,
+    mobileMenuOpen: contextMobileOpen,
+    setMobileMenuOpen: contextSetMobileOpen,
+    openAuthModal,
+    isCandidateLoggedIn,
+    logoutCandidate
   } = useApp();
+
+  const isMobileMenuOpen = customMobileMenuOpen !== undefined ? customMobileMenuOpen : contextMobileOpen;
+  const handleToggleMobileMenu = () => {
+    if (customSetMobileMenuOpen) {
+      customSetMobileMenuOpen(!isMobileMenuOpen);
+    } else {
+      contextSetMobileOpen(!isMobileMenuOpen);
+    }
+  };
+
+  const handleAuthClick = (mode: 'candidate' | 'admin' | 'register' = 'candidate') => {
+    if (customOpenAuth) {
+      customOpenAuth();
+    } else {
+      openAuthModal(mode);
+    }
+  };
 
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -47,11 +69,11 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Left Brand Identity */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={handleToggleMobileMenu}
             className="lg:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition"
             aria-label="Toggle navigation menu"
           >
-            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
           <div
@@ -150,8 +172,29 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Candidate Profile Avatar Badge */}
+          {/* Login Option & Profile Controls */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+            {/* Quick Login Button */}
+            <button
+              onClick={() => handleAuthClick('candidate')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition"
+              title="Candidate & Admin Login Portal"
+            >
+              <User size={14} className="text-emerald-400" />
+              <span className="hidden sm:inline">Login</span>
+            </button>
+
+            {isAdminLoggedIn && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-950/90 text-amber-300 border border-amber-700/60 text-xs font-bold hover:bg-amber-900 transition"
+                title="Go to Admin Dashboard"
+              >
+                <ShieldCheck size={14} className="text-amber-400" />
+                <span className="hidden md:inline">Admin Panel</span>
+              </button>
+            )}
+
             <div
               onClick={() => setActiveTab('profile_settings')}
               className="flex items-center gap-2 cursor-pointer group"

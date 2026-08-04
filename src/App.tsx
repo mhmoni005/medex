@@ -13,6 +13,7 @@ import { StudyGroupsChatView } from './components/StudyGroupsChatView';
 import { CommunityForumView } from './components/CommunityForumView';
 import { SubscriptionPortalView } from './components/SubscriptionPortalView';
 import { CandidateProfileView } from './components/CandidateProfileView';
+import { AdminDashboardView } from './components/AdminDashboardView';
 
 const MainAppContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -34,7 +35,10 @@ const MainAppContent: React.FC = () => {
       case 'subscriptions':
         return <SubscriptionPortalView />;
       case 'profile':
+      case 'profile_settings':
         return <CandidateProfileView />;
+      case 'admin':
+        return <AdminDashboardView />;
       default:
         return <DashboardView />;
     }
