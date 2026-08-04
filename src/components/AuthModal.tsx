@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { MedicalSpecialty } from '../types';
 import {
   X,
   Stethoscope,
   ShieldCheck,
   Mail,
-  Phone,
   Lock,
   User,
-  KeyRound,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
-  ShieldAlert
+  Phone,
+  ArrowRight,
+  KeyRound,
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -29,153 +29,160 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
     updateCandidate,
     candidate,
     loginCandidate,
-    loginAdmin,
     adminEmail,
+    unifiedLogin,
     setActiveTab
   } = useApp();
 
   const isOpen = propIsOpen !== undefined ? propIsOpen : isAuthModalOpen;
   const handleClose = propOnClose || closeAuthModal;
 
-  const [mode, setMode] = useState<'login' | 'admin' | 'register' | 'otp'>('login');
-  
-  // Sync initial mode with context if modal opens
-  useEffect(() => {
-    if (authModalMode === 'admin') {
-      setMode('admin');
-    } else if (authModalMode === 'register') {
-      setMode('register');
-    } else if (isOpen) {
-      setMode('login');
-    }
-  }, [authModalMode, isOpen]);
+  const [tabMode, setTabMode] = useState<'login' | 'register' | 'otp'>('login');
 
-  // Candidate Login state
-  const [identifier, setIdentifier] = useState(candidate.phone || candidate.email || '+8801712345678');
-  const [candidatePassword, setCandidatePassword] = useState('candidate123');
+  // Unified Login state
+  const [loginIdentifier, setLoginIdentifier] = useState(candidate.email || '+8801712345678');
+  const [loginPassword, setLoginPassword] = useState('candidate123');
 
-  // Admin Login state
-  const [inputAdminEmail, setInputAdminEmail] = useState(adminEmail || 'mhmoni005@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('mhmoni005');
+  // Simplified Register state (Only Email/Phone & Password)
+  const [regIdentifier, setRegIdentifier] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
 
-  // Register state
-  const [name, setName] = useState(candidate.name || 'Dr. Candidate');
-  const [designation, setDesignation] = useState(candidate.designation || 'Medical Officer');
-  const [specialty, setSpecialty] = useState<MedicalSpecialty>(candidate.specialty || 'FCPS Part I (Surgery)');
-  const [bmdcRegNo, setBmdcRegNo] = useState(candidate.bmdcRegNo || 'A-102938');
+  // OTP Verification state
+  const [otpCode, setOtpCode] = useState('123456');
 
-  // OTP State
-  const [otpCode, setOtpCode] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  useEffect(() => {
+    if (authModalMode === 'register') {
+      setTabMode('register');
+    } else if (isOpen) {
+      setTabMode('login');
+    }
+  }, [authModalMode, isOpen]);
+
   if (!isOpen) return null;
 
-  const specialtiesList: MedicalSpecialty[] = [
-    'FCPS Part I (Surgery)',
-    'FCPS Part I (Medicine)',
-    'FCPS Part I (Gynae & Obs)',
-    'MS General Surgery',
-    'MS Orthopedics',
-    'MD Cardiology',
-    'MD Pediatrics',
-    'MRCS Part A',
-    'MRCP Part 1',
-    'MBBS Final Professional Exam'
-  ];
-
-  // Handler for Candidate Login
-  const handleCandidateLogin = (e: React.FormEvent) => {
+  // Handler for Unified Login (Candidate & Admin share the exact same login option)
+  const handleUnifiedLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!identifier) {
-      setErrorMsg('Please enter your Candidate Email or Bangladeshi Mobile Number.');
+    setSuccessMsg('');
+
+    if (!loginIdentifier.trim()) {
+      setErrorMsg('Please enter your Email or Phone Number.');
       return;
     }
 
-    loginCandidate(identifier);
-    setSuccessMsg(`Logged in successfully as Candidate (${candidate.name})!`);
-    setTimeout(() => {
-      setSuccessMsg('');
-      handleClose();
-    }, 1000);
-  };
-
-  // Handler for Admin Login
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    if (!inputAdminEmail) {
-      setErrorMsg('Please enter your Admin Mail ID.');
+    if (!loginPassword.trim()) {
+      setErrorMsg('Please enter your password.');
       return;
     }
 
-    const success = loginAdmin(inputAdminEmail, adminPassword);
-    if (success) {
-      setSuccessMsg(`Admin Login Verified! Redirecting to Admin Dashboard...`);
+    // Call unified login
+    const userRole = unifiedLogin(loginIdentifier, loginPassword);
+
+    if (userRole === 'admin') {
+      setSuccessMsg(`Welcome Admin (${adminEmail})! Opening Admin Dashboard...`);
       setTimeout(() => {
         setSuccessMsg('');
         handleClose();
         setActiveTab('admin');
       }, 1000);
     } else {
-      setErrorMsg(`Invalid Admin Mail ID or password. Use email: ${adminEmail}`);
+      setSuccessMsg(`Logged in successfully as Candidate (${candidate.name || loginIdentifier})!`);
+      setTimeout(() => {
+        setSuccessMsg('');
+        handleClose();
+      }, 1000);
     }
   };
 
-  // Handler for Fill Admin Credentials Shortcut
-  const handleFillAdminCredentials = () => {
-    setInputAdminEmail('mhmoni005@gmail.com');
-    setAdminPassword('mhmoni005');
-    setErrorMsg('');
-  };
-
-  // Handler for Fill Candidate Credentials Shortcut
-  const handleFillCandidateCredentials = () => {
-    setIdentifier('dr.candidate@medexam.bd');
-    setCandidatePassword('candidate123');
-    setErrorMsg('');
-  };
-
-  const handleSendOTP = (e: React.FormEvent) => {
+  // Step 1: Handle initial Register form submission -> proceed to OTP
+  const handleRegisterNextToOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!identifier) {
-      setErrorMsg('Please enter your Email or Bangladeshi Mobile Number.');
-      return;
-    }
-    setOtpCode('123456'); // Auto-filled for quick demo
-    setMode('otp');
-  };
+    setSuccessMsg('');
 
-  const handleVerifyOTPAndSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode !== '123456' && otpCode.length !== 6) {
-      setErrorMsg('Invalid OTP code. Please enter 123456.');
+    const cleanId = regIdentifier.trim();
+    if (!cleanId) {
+      setErrorMsg('Please enter your Phone Number or Email Address.');
       return;
     }
 
+    if (!regPassword || regPassword.length < 4) {
+      setErrorMsg('Password must be at least 4 characters long.');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setErrorMsg('Passwords do not match. Please verify.');
+      return;
+    }
+
+    // Transition to OTP verification step
+    setOtpCode('123456'); // Pre-fill default demo OTP for fast testing
+    setSuccessMsg(`OTP Code sent to ${cleanId}! Please enter the 6-digit code below.`);
+    setTabMode('otp');
+  };
+
+  // Step 2: Handle OTP verification and final registration
+  const handleVerifyOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setErrorMsg('Please enter a valid 6-digit OTP code.');
+      return;
+    }
+
+    const cleanId = regIdentifier.trim();
+    const isEmailInput = cleanId.includes('@');
+
+    // Save initial credentials
     updateCandidate({
-      name: name || 'Dr. Candidate',
-      phone: identifier.includes('@') ? candidate.phone : identifier,
-      email: identifier.includes('@') ? identifier : candidate.email,
-      designation,
-      specialty,
-      bmdcRegNo
+      email: isEmailInput ? cleanId : (candidate.email || 'doctor@medexam.bd'),
+      phone: !isEmailInput ? cleanId : (candidate.phone || '+8801700000000'),
+      password: regPassword,
+      name: candidate.name || 'Dr. Candidate'
     });
 
-    loginCandidate(identifier);
-    setSuccessMsg('Account registered and authenticated successfully!');
+    // Automatically log candidate in
+    loginCandidate(cleanId);
+
+    setSuccessMsg('OTP Verified! Account created successfully. Opening Profile Settings...');
     setTimeout(() => {
       setSuccessMsg('');
       handleClose();
-    }, 1000);
+      setActiveTab('profile_settings');
+    }, 1200);
+  };
+
+  // Resend OTP trigger
+  const handleResendOtp = () => {
+    setOtpCode('123456');
+    setErrorMsg('');
+    setSuccessMsg(`A new 6-digit OTP code has been sent to ${regIdentifier.trim() || 'your phone/email'}.`);
+  };
+
+  // Shortcut helpers
+  const handleFillCandidateDemo = () => {
+    setLoginIdentifier('dr.candidate@medexam.bd');
+    setLoginPassword('candidate123');
+    setErrorMsg('');
+  };
+
+  const handleFillAdminDemo = () => {
+    setLoginIdentifier('mhmoni005@gmail.com');
+    setLoginPassword('mhmoni005');
+    setErrorMsg('');
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100">
+      <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100">
         
         {/* Close Button */}
         <button
@@ -185,79 +192,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
           <X size={20} />
         </button>
 
-        {/* Header */}
+        {/* Portal Branding Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 p-3 text-white shadow-lg flex items-center justify-center shrink-0">
             <Stethoscope size={28} />
           </div>
           <div>
             <h2 className="text-xl font-extrabold text-white">MedExam Login Portal</h2>
-            <p className="text-xs text-slate-400">Postgraduate Medical Candidate & Admin Access</p>
+            <p className="text-xs text-slate-400">Candidate & Admin Unified Access</p>
           </div>
         </div>
 
         {errorMsg && (
           <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle size={16} className="shrink-0" />
+            <AlertCircle size={16} className="shrink-0 text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
           <div className="mb-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 size={16} className="shrink-0" />
+            <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {/* Mode Switch Tabs (Candidate Login / Admin Login / Register) */}
-        <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-slate-800/90 mb-6 text-[11px] font-bold">
+        {/* Unified Tab Selector (Sign In vs Register) */}
+        <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-2xl bg-slate-800/90 mb-6 text-xs font-bold">
           <button
             type="button"
-            onClick={() => { setMode('login'); setErrorMsg(''); }}
-            className={`py-2 px-2 rounded-xl transition text-center ${
-              mode === 'login' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => { setTabMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+            className={`py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
+              tabMode === 'login' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Candidate Sign In
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => { setMode('admin'); setErrorMsg(''); }}
-            className={`py-2 px-2 rounded-xl transition text-center flex items-center justify-center gap-1 ${
-              mode === 'admin' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <ShieldAlert size={12} />
-            <span>Admin Sign In</span>
+            <User size={14} />
+            <span>Sign In</span>
           </button>
 
           <button
             type="button"
-            onClick={() => { setMode('register'); setErrorMsg(''); }}
-            className={`py-2 px-2 rounded-xl transition text-center ${
-              mode === 'register' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => { setTabMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
+            className={`py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
+              tabMode === 'register' || tabMode === 'otp' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Register Profile
+            <ShieldCheck size={14} />
+            <span>Create Account</span>
           </button>
         </div>
 
-        {/* 1. CANDIDATE LOGIN FORM */}
-        {mode === 'login' && (
-          <form onSubmit={handleCandidateLogin} className="space-y-4">
+        {/* 1. UNIFIED LOGIN FORM (BOTH CANDIDATE & ADMIN USE THIS SAME FORM) */}
+        {tabMode === 'login' && (
+          <form onSubmit={handleUnifiedLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Candidate Mail ID or Phone (+880)
+                Email Address or Phone Number
               </label>
               <div className="relative">
                 <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  value={identifier}
-                  onChange={e => setIdentifier(e.target.value)}
-                  placeholder="e.g. dr.candidate@medexam.bd or +8801712345678"
+                  value={loginIdentifier}
+                  onChange={e => setLoginIdentifier(e.target.value)}
+                  placeholder="mhmoni005@gmail.com or +8801712345678"
                   className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
                   required
                 />
@@ -266,73 +264,72 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Password / Access Key
+                Password
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="password"
-                  value={candidatePassword}
-                  onChange={e => setCandidatePassword(e.target.value)}
+                  value={loginPassword}
+                  onChange={e => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500"
-                />
-                <span>Remember me on this device</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleFillCandidateCredentials}
-                className="text-emerald-400 hover:underline font-bold text-[11px]"
-              >
-                Auto-fill Candidate
-              </button>
+            <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2 text-[11px]">
+              <div className="flex items-center justify-between text-slate-400 font-medium">
+                <span>Quick Fill Credentials:</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleFillCandidateDemo}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-700/80 hover:bg-slate-700 text-slate-200 text-left truncate font-mono text-[10px] border border-slate-600 transition"
+                >
+                  Candidate Demo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFillAdminDemo}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-300 text-left truncate font-mono text-[10px] border border-amber-700/60 transition"
+                >
+                  Admin ({adminEmail})
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs hover:from-emerald-500 hover:to-teal-500 transition shadow-lg shadow-emerald-900/40"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2"
             >
-              Sign In as Medical Candidate
+              <span>Sign In</span>
+              <ArrowRight size={16} />
             </button>
           </form>
         )}
 
-        {/* 2. ADMIN LOGIN FORM */}
-        {mode === 'admin' && (
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-800/60 text-xs text-amber-200">
-              <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
-                <ShieldAlert size={15} />
-                <span>Admin Login Credentials</span>
-              </div>
-              <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                Log in with Admin Mail ID: <strong className="text-white font-mono">mhmoni005@gmail.com</strong>
-              </p>
+        {/* 2. SIMPLIFIED REGISTER FORM (ONLY PHONE/EMAIL & PASSWORD REQUIRED) */}
+        {tabMode === 'register' && (
+          <form onSubmit={handleRegisterNextToOtp} className="space-y-4">
+            <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-800/50 text-[11px] text-emerald-300 leading-relaxed">
+              ⚡ Quick Registration: Enter Phone or Email & Password. An OTP verification code will be sent to confirm your account.
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Admin Mail ID
+                Phone Number (+880) or Email Address
               </label>
               <div className="relative">
-                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400" />
+                <Phone size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="email"
-                  value={inputAdminEmail}
-                  onChange={e => setInputAdminEmail(e.target.value)}
-                  placeholder="mhmoni005@gmail.com"
-                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-amber-500/50 focus:outline-none focus:border-amber-400"
+                  type="text"
+                  value={regIdentifier}
+                  onChange={e => setRegIdentifier(e.target.value)}
+                  placeholder="e.g. +8801700000000 or doctor@medexam.bd"
+                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -340,128 +337,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Admin Security Password
+                Create Password
               </label>
               <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400" />
+                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="password"
-                  value={adminPassword}
-                  onChange={e => setAdminPassword(e.target.value)}
-                  placeholder="mhmoni005"
-                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-amber-500/50 focus:outline-none focus:border-amber-400"
+                  value={regPassword}
+                  onChange={e => setRegPassword(e.target.value)}
+                  placeholder="At least 4 characters"
+                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="text-[11px] text-slate-400">Distinguished Faculty Access</span>
-              <button
-                type="button"
-                onClick={handleFillAdminCredentials}
-                className="text-amber-400 hover:underline font-bold text-[11px]"
-              >
-                Auto-fill Admin (mhmoni005@gmail.com)
-              </button>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  value={regConfirmPassword}
+                  onChange={e => setRegConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-bold text-xs hover:from-amber-500 hover:to-amber-600 transition shadow-lg shadow-amber-950/60"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2"
             >
-              Sign In to Admin Dashboard
+              <span>Get OTP & Continue</span>
+              <ArrowRight size={16} />
             </button>
           </form>
         )}
 
-        {/* 3. CANDIDATE REGISTER FORM */}
-        {mode === 'register' && (
-          <form onSubmit={handleSendOTP} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Doctor Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Dr. Ayesha Rahman"
-                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:border-emerald-500"
-                  required
-                />
+        {/* 3. OTP VERIFICATION STEP */}
+        {tabMode === 'otp' && (
+          <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 text-center space-y-1">
+              <div className="w-10 h-10 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center justify-center mx-auto mb-1">
+                <KeyRound size={20} />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">BMDC Reg. Number</label>
-                <input
-                  type="text"
-                  value={bmdcRegNo}
-                  onChange={e => setBmdcRegNo(e.target.value)}
-                  placeholder="e.g. A-102938"
-                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:border-emerald-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Designation & Institution</label>
-              <input
-                type="text"
-                value={designation}
-                onChange={e => setDesignation(e.target.value)}
-                placeholder="e.g. Medical Officer, Dhaka Medical College Hospital"
-                className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:border-emerald-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Primary Exam Specialty Target</label>
-              <select
-                value={specialty}
-                onChange={e => setSpecialty(e.target.value as MedicalSpecialty)}
-                className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:border-emerald-500"
-              >
-                {specialtiesList.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Email or Phone Number (+880)</label>
-              <input
-                type="text"
-                value={identifier}
-                onChange={e => setIdentifier(e.target.value)}
-                placeholder="+8801700000000"
-                className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:border-emerald-500"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs hover:from-emerald-500 hover:to-teal-500 transition shadow-lg shadow-emerald-900/40 mt-2"
-            >
-              Continue to OTP Verification
-            </button>
-          </form>
-        )}
-
-        {/* 4. OTP VERIFICATION */}
-        {mode === 'otp' && (
-          <form onSubmit={handleVerifyOTPAndSubmit} className="space-y-4">
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-center">
-              <ShieldCheck size={32} className="mx-auto text-emerald-400 mb-2" />
-              <p className="text-xs text-slate-300 font-semibold">Enter 6-Digit SMS / Email Security OTP</p>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Sent to <span className="text-emerald-300 font-medium">{identifier}</span>
+              <p className="text-xs font-bold text-slate-200">OTP Security Verification</p>
+              <p className="text-[11px] text-slate-400">
+                Code sent to <span className="font-semibold text-emerald-400">{regIdentifier || 'your account'}</span>
               </p>
-              <p className="text-[10px] text-amber-300 mt-1">Demo Auto-filled OTP: 123456</p>
+              <p className="text-[10px] text-emerald-300 font-mono mt-1">Demo OTP Code: 123456</p>
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5 text-center">
+                Enter 6-Digit OTP Code
+              </label>
               <div className="relative">
                 <KeyRound size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -470,17 +405,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                   value={otpCode}
                   onChange={e => setOtpCode(e.target.value)}
                   placeholder="123456"
-                  className="w-full bg-slate-800 text-slate-100 text-center font-mono tracking-widest text-lg rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:border-emerald-500"
+                  className="w-full bg-slate-800 text-slate-100 text-center font-mono tracking-widest text-lg rounded-xl pl-10 pr-4 py-3 border border-emerald-500/80 focus:outline-none focus:border-emerald-400"
                   required
                 />
               </div>
             </div>
 
+            <div className="flex items-center justify-between text-[11px]">
+              <button
+                type="button"
+                onClick={() => { setTabMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
+                className="text-slate-400 hover:text-slate-200 font-medium"
+              >
+                ← Back to Edit
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                className="text-emerald-400 hover:underline font-bold flex items-center gap-1"
+              >
+                <RefreshCw size={12} />
+                <span>Resend OTP</span>
+              </button>
+            </div>
+
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs hover:from-emerald-500 hover:to-teal-500 transition shadow-lg shadow-emerald-900/40"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2"
             >
-              Verify OTP & Complete Setup
+              <span>Verify OTP & Complete Account</span>
+              <CheckCircle2 size={16} />
             </button>
           </form>
         )}

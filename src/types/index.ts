@@ -25,6 +25,7 @@ export interface CandidateProfile {
   email: string;
   phone: string;
   designation: string; // e.g., "Dr. Ayesha Rahman, MBBS"
+  collegeHospital?: string; // e.g., "Dhaka Medical College & Hospital"
   specialty: MedicalSpecialty;
   bmdcRegNo: string; // e.g. "A-108294"
   avatarUrl: string;
@@ -33,6 +34,7 @@ export interface CandidateProfile {
   hasActiveSubscription: boolean;
   activeSubscriptionTier?: string;
   subscriptionExpiryDate?: string;
+  password?: string;
 }
 
 export type QuestionType = 'SBA' | 'MCQ';

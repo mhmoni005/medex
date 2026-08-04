@@ -76,6 +76,9 @@ interface AppContextType {
   adminEmail: string;
   loginAdmin: (identifierOrPasscode: string, password?: string) => boolean;
   logoutAdmin: () => void;
+
+  // Unified Login
+  unifiedLogin: (identifier: string, password?: string) => 'admin' | 'candidate';
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -172,6 +175,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('medexam_admin');
     if (activeTab === 'admin') {
       setActiveTab('dashboard');
+    }
+  };
+
+  // Unified Login Handler
+  const unifiedLogin = (identifier: string, password?: string): 'admin' | 'candidate' => {
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // Check if credentials match admin
+    if (
+      cleanId === 'mhmoni005@gmail.com' ||
+      cleanId === 'admin' ||
+      cleanId === 'medadmin2026' ||
+      cleanPass === 'mhmoni005'
+    ) {
+      loginAdmin(identifier, password);
+      return 'admin';
+    } else {
+      loginCandidate(identifier);
+      return 'candidate';
     }
   };
 
@@ -505,7 +528,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAdminLoggedIn,
         adminEmail,
         loginAdmin,
-        logoutAdmin
+        logoutAdmin,
+        unifiedLogin
       }}
     >
       {children}
