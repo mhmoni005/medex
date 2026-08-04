@@ -60,8 +60,9 @@ export const QuestionBankView: React.FC = () => {
     if (selectedFaculty !== 'All' && q.faculty !== selectedFaculty) return false;
     if (selectedType !== 'All' && q.type !== selectedType) return false;
     if (searchFilter) {
-      const text = (q.type === 'SBA' ? q.question : q.stem) + q.topic + (q.yearTag || '');
-      if (!text.toLowerCase().includes(searchFilter.toLowerCase())) return false;
+      const qText = (q as any).question || (q as any).stem || '';
+      const text = qText + ((q as any).topic || '') + ((q as any).yearTag || '');
+      if (!text.toLowerCase().includes((searchFilter || '').toLowerCase())) return false;
     }
     return true;
   });

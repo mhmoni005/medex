@@ -50,8 +50,8 @@ export const CommunityForumView: React.FC = () => {
   const filteredPosts = forumPosts.filter(p => {
     if (selectedFaculty !== 'All' && p.facultyTag !== selectedFaculty) return false;
     if (searchFilter) {
-      const matchText = p.title + p.content + p.facultyTag;
-      if (!matchText.toLowerCase().includes(searchFilter.toLowerCase())) return false;
+      const matchText = (p.title || '') + (p.content || '') + (p.facultyTag || '');
+      if (!matchText.toLowerCase().includes((searchFilter || '').toLowerCase())) return false;
     }
     return true;
   });

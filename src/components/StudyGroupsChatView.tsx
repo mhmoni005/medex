@@ -48,11 +48,13 @@ export const StudyGroupsChatView: React.FC = () => {
 
   const handleSelectGroup = (grp: StudyGroup) => {
     // Subscribed Specialty Enforcement Check
+    const specTag = grp?.specialtyTag || '';
+    const candSpec = candidate?.specialty || '';
     const isSubscribed =
-      candidate.hasActiveSubscription &&
-      (candidate.activeSubscriptionTier?.includes('All-Access') ||
-        candidate.activeSubscriptionTier?.includes(grp.specialtyTag.substring(0, 8)) ||
-        grp.specialtyTag.toLowerCase().includes(candidate.specialty.toLowerCase().substring(0, 6)));
+      candidate?.hasActiveSubscription &&
+      (candidate?.activeSubscriptionTier?.includes('All-Access') ||
+        (specTag && candidate?.activeSubscriptionTier?.includes(specTag.substring(0, 8))) ||
+        specTag.toLowerCase().includes(candSpec.toLowerCase().substring(0, 6)));
 
     const isGroupJoined = joinedGroupIds.includes(grp.id);
 
@@ -115,7 +117,7 @@ export const StudyGroupsChatView: React.FC = () => {
         {/* Group Item List */}
         <div className="flex-1 overflow-y-auto space-y-2 pt-3">
           {studyGroups
-            .filter(g => g.name.toLowerCase().includes(groupSearch.toLowerCase()))
+            .filter(g => (g?.name || '').toLowerCase().includes((groupSearch || '').toLowerCase()))
             .map(grp => {
               const isActive = grp.id === activeGroupId;
               const joined = joinedGroupIds.includes(grp.id);

@@ -149,7 +149,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const loginAdmin = (identifierOrPasscode: string, password?: string) => {
-    const cleanId = identifierOrPasscode.trim().toLowerCase();
+    const cleanId = (identifierOrPasscode || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
     // Check if logging in via email + password, or direct passcode
@@ -263,11 +263,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Subscribed Specialty Enforcement: Check if candidate specialty or subscription allows joining
     // Allow if candidate has active subscription AND specialty matches OR All-Access Pass
+    const specTag = targetGroup.specialtyTag || '';
+    const candSpec = candidate?.specialty || '';
     const isSubscribedSpecialty =
-      candidate.hasActiveSubscription &&
-      (candidate.activeSubscriptionTier?.includes('All-Access') ||
-        candidate.activeSubscriptionTier?.includes(targetGroup.specialtyTag.substring(0, 8)) ||
-        targetGroup.specialtyTag.toLowerCase().includes(candidate.specialty.toLowerCase().substring(0, 6)));
+      candidate?.hasActiveSubscription &&
+      (candidate?.activeSubscriptionTier?.includes('All-Access') ||
+        (specTag && candidate?.activeSubscriptionTier?.includes(specTag.substring(0, 8))) ||
+        specTag.toLowerCase().includes(candSpec.toLowerCase().substring(0, 6)));
 
     if (!isSubscribedSpecialty && !joinedGroupIds.includes(groupId)) {
       return {
@@ -434,7 +436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tierName: tier.name,
       gateway,
       accountNumber,
-      trxId: trxId.trim().toUpperCase(),
+      trxId: (trxId || '').trim().toUpperCase(),
       amountBDT: tier.priceBDT,
       status: 'active', // Instant simulation activation
       timestamp: new Date().toLocaleString()
@@ -454,7 +456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return {
       success: true,
-      message: `Transaction ${trxId.toUpperCase()} verified! Your "${tier.name}" is now ACTIVE.`
+      message: `Transaction ${(trxId || '').toUpperCase()} verified! Your "${tier.name}" is now ACTIVE.`
     };
   };
 
