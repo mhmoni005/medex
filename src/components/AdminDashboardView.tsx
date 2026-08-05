@@ -52,7 +52,8 @@ import {
   Unlock,
   Building,
   TrendingUp,
-  Smartphone
+  Smartphone,
+  Headset
 } from 'lucide-react';
 
 interface ChapterItem {
@@ -126,7 +127,11 @@ export const AdminDashboardView: React.FC = () => {
     deleteStudyGroup,
     addCandidateToGroup,
     removeCandidateFromGroup,
-    candidateDirectory
+    candidateDirectory,
+    helplineContacts,
+    addHelplineContact,
+    removeHelplineContact,
+    toggleHelplineContact
   } = useApp();
 
   // Admin Account Edit Modal State
@@ -195,8 +200,14 @@ export const AdminDashboardView: React.FC = () => {
 
   // Control cabinet active tab
   const [activeCabinetTab, setActiveCabinetTab] = useState<
-    'questions' | 'chapters' | 'mock_exams' | 'fcm' | 'gateways' | 'users' | 'study_groups' | 'revenues' | 'admin_accounts' | 'specialties'
+    'questions' | 'chapters' | 'mock_exams' | 'fcm' | 'gateways' | 'users' | 'study_groups' | 'helpline' | 'revenues' | 'admin_accounts' | 'specialties'
   >('questions');
+
+  // --- HELPLINE MANAGEMENT TAB STATE ---
+  const [newHelplineType, setNewHelplineType] = useState<'whatsapp' | 'email'>('whatsapp');
+  const [newHelplineLabel, setNewHelplineLabel] = useState('');
+  const [newHelplineValue, setNewHelplineValue] = useState('');
+  const [helplineMsg, setHelplineMsg] = useState('');
 
   // --- STUDY GROUPS MANAGEMENT TAB STATE ---
   const [newGroupName, setNewGroupName] = useState('');
@@ -1139,6 +1150,21 @@ export const AdminDashboardView: React.FC = () => {
             <span>Study Groups</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold">
               {studyGroups.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveCabinetTab('helpline')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm ${
+              activeCabinetTab === 'helpline'
+                ? 'bg-blue-600 text-white shadow-blue-500/20'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Headset size={15} className="text-emerald-400" />
+            <span>Candidate Helpline</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold">
+              {helplineContacts ? helplineContacts.length : 0}
             </span>
           </button>
 
@@ -2695,6 +2721,228 @@ export const AdminDashboardView: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            CANDIDATE HELPLINE MANAGEMENT TAB (ADMIN LEVEL)
+           ========================================================================= */}
+        {activeCabinetTab === 'helpline' && (
+          <div className="space-y-6">
+            
+            {helplineMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between shadow-sm animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                  <span>{helplineMsg}</span>
+                </div>
+                <button onClick={() => setHelplineMsg('')} className="text-emerald-400 hover:text-emerald-200">
+                  <XCircle size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* ADD NEW HELPLINE CHANNEL FORM */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <PlusCircle size={18} className="text-emerald-500" />
+                    <span>Add New Candidate Helpline Channel</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Configure multiple WhatsApp numbers and Email addresses for candidate support
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono font-bold border border-emerald-300 dark:border-emerald-800">
+                  Admin Managed
+                </span>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newHelplineLabel.trim() || !newHelplineValue.trim()) return;
+
+                  addHelplineContact({
+                    type: newHelplineType,
+                    label: newHelplineLabel.trim(),
+                    value: newHelplineValue.trim(),
+                    isActive: true
+                  });
+
+                  setHelplineMsg(`✨ Added new ${newHelplineType === 'whatsapp' ? 'WhatsApp' : 'Email'} helpline: "${newHelplineLabel.trim()}"`);
+                  setTimeout(() => setHelplineMsg(''), 4000);
+                  setNewHelplineLabel('');
+                  setNewHelplineValue('');
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Helpline Type</label>
+                    <select
+                      value={newHelplineType}
+                      onChange={e => setNewHelplineType(e.target.value as any)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500 font-bold"
+                    >
+                      <option value="whatsapp">💬 WhatsApp Number</option>
+                      <option value="email">✉️ Email Support Address</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Support Desk Service Title / Label</label>
+                    <input
+                      type="text"
+                      value={newHelplineLabel}
+                      onChange={e => setNewHelplineLabel(e.target.value)}
+                      placeholder={newHelplineType === 'whatsapp' ? 'e.g. 24/7 Academic Recall Helpline' : 'e.g. Official Candidate Helpdesk'}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {newHelplineType === 'whatsapp' ? 'WhatsApp Phone Number' : 'Email Support Address'}
+                    </label>
+                    <input
+                      type={newHelplineType === 'whatsapp' ? 'tel' : 'email'}
+                      value={newHelplineValue}
+                      onChange={e => setNewHelplineValue(e.target.value)}
+                      placeholder={newHelplineType === 'whatsapp' ? '+8801700001122' : 'support@medexambd.org'}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500 font-mono font-semibold"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-amber-500 shrink-0" />
+                  <span>
+                    <strong>Privacy Assurance:</strong> Candidates will ONLY see the channel logo and title with a direct action button. The actual phone number or email address string remains hidden on candidate UI.
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2"
+                >
+                  <PlusCircle size={16} />
+                  <span>Add Helpline Channel to Candidate Desk</span>
+                </button>
+              </form>
+            </div>
+
+            {/* EXISTING HELPLINE CHANNELS ROSTER */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Headset size={18} className="text-emerald-500" />
+                    <span>Configured Helpline Channels ({helplineContacts ? helplineContacts.length : 0})</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Admin can manage, toggle status, or delete helpline contacts anytime</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {!helplineContacts || helplineContacts.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-2xl">
+                    No helpline channels added yet. Use the form above to add WhatsApp or Email helplines.
+                  </div>
+                ) : (
+                  helplineContacts.map(item => (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            item.type === 'whatsapp'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-blue-600 text-white'
+                          }`}
+                        >
+                          {item.type === 'whatsapp' ? (
+                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l.236.376-1.003 3.666 3.753-.984.357.204z"/>
+                            </svg>
+                          ) : (
+                            <Mail size={20} />
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase ${
+                                item.type === 'whatsapp'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                              }`}
+                            >
+                              {item.type === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                            </span>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.isActive
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                              }`}
+                            >
+                              {item.isActive ? 'Active Channel' : 'Disabled'}
+                            </span>
+                          </div>
+
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-xs mt-1">
+                            {item.label}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                            Target Value: <strong className="text-emerald-600 dark:text-emerald-400">{item.value}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            toggleHelplineContact(item.id);
+                            setHelplineMsg(`Toggled status for "${item.label}".`);
+                            setTimeout(() => setHelplineMsg(''), 3000);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                            item.isActive
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                              : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200'
+                          }`}
+                        >
+                          {item.isActive ? 'Disable Channel' : 'Enable Channel'}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete helpline contact "${item.label}"?`)) {
+                              removeHelplineContact(item.id);
+                              setHelplineMsg(`Removed helpline contact "${item.label}".`);
+                              setTimeout(() => setHelplineMsg(''), 4000);
+                            }
+                          }}
+                          className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-200 border border-rose-300 dark:border-rose-800 transition"
+                          title="Delete Helpline Contact"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

@@ -9,7 +9,8 @@ import {
   ChatMessage,
   ForumPost,
   ExamAttempt,
-  ExamSpecialtyItem
+  ExamSpecialtyItem,
+  HelplineContact
 } from '../types';
 import {
   initialAdminProfile,
@@ -51,6 +52,11 @@ interface AppContextType {
   candidateDirectory: CandidateProfile[];
   addCandidateToDirectory: (candidate: Omit<CandidateProfile, 'id' | 'createdAt'>) => void;
   removeCandidateFromDirectory: (candidateId: string) => void;
+
+  helplineContacts: HelplineContact[];
+  addHelplineContact: (contact: Omit<HelplineContact, 'id'>) => void;
+  removeHelplineContact: (id: string) => void;
+  toggleHelplineContact: (id: string) => void;
 
   chatMessages: Record<string, ChatMessage[]>;
   sendChatMessage: (groupId: string, messageData: { text?: string; imageUrl?: string; embeddedQuestion?: Question }) => void;
@@ -387,6 +393,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const removeCandidateFromDirectory = (candId: string) => {
     setCandidateDirectory(prev => prev.filter(c => c.id !== candId));
+  };
+
+  // Helpline Contacts State (Admin managed WhatsApp & Email helpline)
+  const [helplineContacts, setHelplineContacts] = useState<HelplineContact[]>(() => {
+    const saved = localStorage.getItem('medexam_helpline_contacts');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'hlp_wa_1',
+        type: 'whatsapp',
+        label: '24/7 Academic & Question Recall Helpline',
+        value: '+8801700001122',
+        isActive: true
+      },
+      {
+        id: 'hlp_wa_2',
+        type: 'whatsapp',
+        label: 'Exam Admission & Pass Verification Support',
+        value: '+8801800003344',
+        isActive: true
+      },
+      {
+        id: 'hlp_em_1',
+        type: 'email',
+        label: 'Official Candidate Support Desk',
+        value: 'support@medexambd.org',
+        isActive: true
+      },
+      {
+        id: 'hlp_em_2',
+        type: 'email',
+        label: 'Faculty Administrator Contact',
+        value: 'admin@medexambd.org',
+        isActive: true
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('medexam_helpline_contacts', JSON.stringify(helplineContacts));
+  }, [helplineContacts]);
+
+  const addHelplineContact = (contact: Omit<HelplineContact, 'id'>) => {
+    const created: HelplineContact = {
+      ...contact,
+      id: 'hlp_' + Date.now()
+    };
+    setHelplineContacts(prev => [created, ...prev]);
+  };
+
+  const removeHelplineContact = (id: string) => {
+    setHelplineContacts(prev => prev.filter(h => h.id !== id));
+  };
+
+  const toggleHelplineContact = (id: string) => {
+    setHelplineContacts(prev =>
+      prev.map(h => (h.id === id ? { ...h, isActive: !h.isActive } : h))
+    );
   };
 
   // Study Groups & Membership State
@@ -785,6 +849,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         candidateDirectory,
         addCandidateToDirectory,
         removeCandidateFromDirectory,
+        helplineContacts,
+        addHelplineContact,
+        removeHelplineContact,
+        toggleHelplineContact,
         chatMessages,
         sendChatMessage,
         forumPosts,

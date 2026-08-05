@@ -13,7 +13,8 @@ import {
   UserCheck,
   Award,
   BookMarked,
-  LogOut
+  LogOut,
+  Headset
 } from 'lucide-react';
 
 interface SidebarNavigationProps {
@@ -182,20 +183,29 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
         </div>
 
         {/* Bottom Quick Help Card */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-800/40 text-xs">
-          <div className="flex items-center gap-2 text-emerald-400 font-bold mb-1">
-            <BookMarked size={16} />
-            <span>Postgraduate Hotline</span>
+        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-800/40 text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+              <Headset size={16} className="text-emerald-300 animate-pulse" />
+              <span>Candidate Helpline</span>
+            </div>
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+              WA & Email
+            </span>
           </div>
           <p className="text-[11px] text-slate-300 leading-relaxed">
-            Need subscription activation help or exam syllabus guidance?
+            Need 24/7 academic recall or subscription pass support?
           </p>
-          <a
-            href="tel:+8801700000000"
-            className="inline-block mt-2 text-[11px] font-semibold text-emerald-400 hover:underline"
+          <button
+            onClick={() => {
+              const helplineBtn = document.querySelector('button[title*="Helpline"]') as HTMLButtonElement;
+              if (helplineBtn) helplineBtn.click();
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] transition shadow-md shadow-emerald-950/50 flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            +880 1700-000000 (bKash Helpline)
-          </a>
+            <Headset size={14} />
+            <span>Open Helpline Desk</span>
+          </button>
         </div>
       </aside>
     </>

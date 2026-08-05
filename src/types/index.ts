@@ -214,3 +214,11 @@ export interface ForumPost {
   timestamp: string;
   replies: ForumReply[];
 }
+
+export interface HelplineContact {
+  id: string;
+  type: 'whatsapp' | 'email';
+  label: string;
+  value: string;
+  isActive: boolean;
+}

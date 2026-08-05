@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { CandidateHelplineModal } from './CandidateHelplineModal';
 import {
   Stethoscope,
   Search,
@@ -13,7 +14,8 @@ import {
   CheckCircle2,
   Lock,
   Menu,
-  X
+  X,
+  Headset
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -62,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isHelplineOpen, setIsHelplineOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-800 text-white px-4 lg:px-8 py-3.5 shadow-md">
@@ -133,6 +136,19 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )
           )}
+
+          {/* Candidate Helpline Button (WhatsApp & Email) */}
+          <button
+            onClick={() => setIsHelplineOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition shadow-xs group cursor-pointer"
+            title="Candidate Helpline (WhatsApp & Email Support)"
+          >
+            <Headset size={16} className="text-emerald-400 group-hover:scale-110 transition animate-pulse" />
+            <span className="hidden sm:inline">Helpline</span>
+            <span className="flex items-center gap-1 text-[10px] bg-emerald-500/30 px-1.5 py-0.2 rounded-md font-mono text-emerald-200">
+              WA & Mail
+            </span>
+          </button>
 
           {/* Theme Toggle Button */}
           <button
@@ -261,6 +277,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
       </div>
+
+      {/* Candidate Helpline Modal */}
+      <CandidateHelplineModal
+        isOpen={isHelplineOpen}
+        onClose={() => setIsHelplineOpen(false)}
+      />
     </header>
   );
 };
