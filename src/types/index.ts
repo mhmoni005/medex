@@ -19,8 +19,29 @@ export type FacultyName =
   | 'Pediatrics'
   | 'Basic Medical Sciences';
 
+export interface ExamSpecialtyItem {
+  id: string;
+  name: string;
+  mcqCount: number;
+  chapterCount: number;
+  iconType: string;
+  isLocked?: boolean;
+}
+
+export interface AdminProfile {
+  adminId: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatarUrl: string;
+  role: string;
+  designation?: string;
+  department?: string;
+}
+
 export interface CandidateProfile {
   id: string;
+  candidateId?: string; // e.g. "CAND-108294"
   name: string;
   email: string;
   phone: string;
@@ -50,6 +71,10 @@ export interface SBAQuestion {
   textbookReference: string;
   faculty: FacultyName;
   topic: string;
+  specialtyTag?: string;
+  facultyTag?: string;
+  examSessionTag?: string;
+  textbookCitation?: string;
   yearTag?: string; // e.g. "BCPS FCPS Jan 2025 Recall"
   status: 'approved' | 'pending_approval' | 'rejected';
   submittedBy?: string;
@@ -71,6 +96,10 @@ export interface MCQQuestion {
   textbookReference: string;
   faculty: FacultyName;
   topic: string;
+  specialtyTag?: string;
+  facultyTag?: string;
+  examSessionTag?: string;
+  textbookCitation?: string;
   yearTag?: string;
   status: 'approved' | 'pending_approval' | 'rejected';
   submittedBy?: string;
@@ -140,7 +169,10 @@ export interface StudyGroup {
   activeNowCount: number;
   isPrivate: boolean;
   facultySupervisor: string;
+  adminId?: string;
+  adminName?: string;
   recentActivity: string;
+  memberCandidateIds?: string[];
 }
 
 export interface ChatMessage {

@@ -14,21 +14,33 @@ import {
   Camera,
   KeyRound,
   AlertCircle,
-  Stethoscope
+  Stethoscope,
+  LogOut
 } from 'lucide-react';
 
 export const CandidateProfileView: React.FC = () => {
-  const { candidate, updateProfile, examHistory, theme, toggleTheme, setActiveTab } = useApp();
+  const { candidate, updateProfile, examHistory, theme, toggleTheme, setActiveTab, logoutCandidate } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
 
   // Profile Edit fields
-  const [name, setName] = useState(candidate.name || 'Dr. Candidate');
+  const [name, setName] = useState(candidate.name || '');
   const [bmdcRegNo, setBmdcRegNo] = useState(candidate.bmdcRegNo || 'A-108294');
   const [specialty, setSpecialty] = useState<MedicalSpecialty>(candidate.specialty || 'FCPS Part I (Surgery)');
   const [designation, setDesignation] = useState(candidate.designation || 'Medical Officer');
   const [collegeHospital, setCollegeHospital] = useState(candidate.collegeHospital || 'Dhaka Medical College & Hospital');
   const [avatarUrl, setAvatarUrl] = useState(candidate.avatarUrl || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300');
+
+  React.useEffect(() => {
+    if (candidate) {
+      setName(candidate.name || '');
+      setBmdcRegNo(candidate.bmdcRegNo || 'A-108294');
+      if (candidate.specialty) setSpecialty(candidate.specialty);
+      if (candidate.designation) setDesignation(candidate.designation);
+      if (candidate.collegeHospital) setCollegeHospital(candidate.collegeHospital);
+      if (candidate.avatarUrl) setAvatarUrl(candidate.avatarUrl);
+    }
+  }, [candidate]);
 
   // Password Change state
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -123,8 +135,12 @@ export const CandidateProfileView: React.FC = () => {
           </div>
 
           <div>
-            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1 flex-wrap">
+              <span className="px-3 py-0.5 rounded-md text-[11px] font-mono font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-700 flex items-center gap-1.5 shadow-xs">
+                <User size={12} className="text-emerald-400" />
+                CANDIDATE ID: {candidate.candidateId || 'CAND-108294'}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">
                 BMDC Reg: {candidate.bmdcRegNo}
               </span>
               <span className="text-xs text-slate-400">{candidate.designation}</span>
@@ -134,7 +150,7 @@ export const CandidateProfileView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2 shrink-0">
+        <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0">
           <button
             onClick={toggleTheme}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-amber-300 transition border border-slate-700"
@@ -143,9 +159,14 @@ export const CandidateProfileView: React.FC = () => {
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
 
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-            {candidate.hasActiveSubscription ? candidate.activeSubscriptionTier : 'Free Trial Pass'}
-          </span>
+          <button
+            onClick={logoutCandidate}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-xs font-bold text-rose-300 border border-rose-800 transition shadow-sm"
+            title="Logout from Candidate Account"
+          >
+            <LogOut size={15} />
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 
@@ -181,6 +202,14 @@ export const CandidateProfileView: React.FC = () => {
           {!isEditing ? (
             <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
               <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Candidate System ID</p>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mt-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-mono font-extrabold text-xs">
+                  <User size={13} className="text-emerald-500 shrink-0" />
+                  <span>{candidate.candidateId || 'CAND-108294'}</span>
+                </div>
+              </div>
+
+              <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Doctor Full Name</p>
                 <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{candidate.name}</p>
               </div>
@@ -205,13 +234,21 @@ export const CandidateProfileView: React.FC = () => {
                 <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{candidate.specialty}</p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
                 <button
                   onClick={() => setShowPasswordChange(!showPasswordChange)}
                   className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition"
                 >
                   <KeyRound size={14} className="text-emerald-500" />
                   <span>{showPasswordChange ? 'Hide Password Settings' : 'Change Password'}</span>
+                </button>
+
+                <button
+                  onClick={logoutCandidate}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-xs flex items-center justify-center gap-2 border border-rose-200 dark:border-rose-900/60 transition"
+                >
+                  <LogOut size={14} className="text-rose-500" />
+                  <span>Logout Account</span>
                 </button>
               </div>
             </div>

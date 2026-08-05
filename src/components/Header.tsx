@@ -35,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
     searchQuery,
     setSearchQuery,
     isAdminLoggedIn,
+    adminProfile,
     logoutAdmin,
     mobileMenuOpen: contextMobileOpen,
     setMobileMenuOpen: contextSetMobileOpen,
@@ -110,25 +111,27 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Actions & Profile */}
         <div className="flex items-center gap-2.5">
           
-          {/* Active Subscription Badge Indicator */}
-          {candidate.hasActiveSubscription ? (
-            <div
-              onClick={() => setActiveTab('subscriptions')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-950 to-teal-950 border border-emerald-500/40 text-emerald-300 text-xs font-medium cursor-pointer hover:border-emerald-400 transition shadow-sm"
-              title={`Active Pass: ${candidate.activeSubscriptionTier}`}
-            >
-              <Crown size={14} className="text-amber-400 fill-amber-400" />
-              <span className="max-w-[140px] truncate">{candidate.activeSubscriptionTier || 'Active Subscriber'}</span>
-              <CheckCircle2 size={13} className="text-emerald-400 ml-0.5" />
-            </div>
-          ) : (
-            <button
-              onClick={() => setActiveTab('subscriptions')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition"
-            >
-              <Lock size={13} />
-              <span>Upgrade Pass</span>
-            </button>
+          {/* Active Subscription Badge Indicator (Only shown to candidates) */}
+          {!isAdminLoggedIn && (
+            candidate.hasActiveSubscription ? (
+              <div
+                onClick={() => setActiveTab('subscriptions')}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-950 to-teal-950 border border-emerald-500/40 text-emerald-300 text-xs font-medium cursor-pointer hover:border-emerald-400 transition shadow-sm"
+                title={`Active Pass: ${candidate.activeSubscriptionTier}`}
+              >
+                <Crown size={14} className="text-amber-400 fill-amber-400" />
+                <span className="max-w-[140px] truncate">{candidate.activeSubscriptionTier || 'Active Subscriber'}</span>
+                <CheckCircle2 size={13} className="text-emerald-400 ml-0.5" />
+              </div>
+            ) : (
+              <button
+                onClick={() => setActiveTab('subscriptions')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition"
+              >
+                <Lock size={13} />
+                <span>Upgrade Pass</span>
+              </button>
+            )
           )}
 
           {/* Theme Toggle Button */}
@@ -172,61 +175,86 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Login Option & Profile Controls */}
+          {/* Login Option & Strict Role Profile Controls */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-            {/* Quick Login Button */}
-            <button
-              onClick={() => handleAuthClick('candidate')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition"
-              title="Candidate & Admin Login Portal"
-            >
-              <User size={14} className="text-emerald-400" />
-              <span className="hidden sm:inline">Login</span>
-            </button>
-
-            {isAdminLoggedIn && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-950/90 text-amber-300 border border-amber-700/60 text-xs font-bold hover:bg-amber-900 transition"
-                title="Go to Admin Dashboard"
-              >
-                <ShieldCheck size={14} className="text-amber-400" />
-                <span className="hidden md:inline">Admin Panel</span>
-              </button>
-            )}
-
-            <div
-              onClick={() => setActiveTab('profile_settings')}
-              className="flex items-center gap-2 cursor-pointer group"
-              title="Candidate Settings & BMDC Record"
-            >
-              <div className="relative">
-                <img
-                  src={candidate.avatarUrl}
-                  alt={candidate.name}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/60 group-hover:ring-emerald-400 transition"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900" />
+            {/* If ADMIN is logged in: Show ONLY Admin identity badge & Admin Logout. NO candidate profile! */}
+            {isAdminLoggedIn ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/90 text-amber-300 border border-amber-700/60 text-xs font-bold hover:bg-amber-900 transition shadow-xs group"
+                  title={`Admin Account: ${adminProfile.name} (${adminProfile.phone})`}
+                >
+                  <img
+                    src={adminProfile.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80'}
+                    alt={adminProfile.name}
+                    className="w-7 h-7 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                  />
+                  <div className="text-left hidden sm:block">
+                    <span className="font-extrabold text-[11px] text-amber-100 block leading-tight truncate max-w-[120px]">
+                      {adminProfile.name}
+                    </span>
+                    <span className="font-mono text-[9px] text-amber-300/90 font-bold block truncate max-w-[120px]">
+                      {adminProfile.phone || 'ADM-SUPER-001'}
+                    </span>
+                  </div>
+                </button>
+                <button
+                  onClick={logoutAdmin}
+                  className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/50 transition"
+                  title="Logout Admin"
+                >
+                  <LogOut size={16} />
+                </button>
               </div>
+            ) : (
+              /* If ADMIN is NOT logged in: Show Candidate Profile / Login Controls. NO admin dashboard! */
+              <div className="flex items-center gap-2">
+                {!isCandidateLoggedIn && (
+                  <button
+                    onClick={() => handleAuthClick('candidate')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition"
+                    title="Candidate & Admin Login Portal"
+                  >
+                    <User size={14} className="text-emerald-400" />
+                    <span className="hidden sm:inline">Login</span>
+                  </button>
+                )}
 
-              <div className="hidden xl:block text-left">
-                <p className="text-xs font-bold text-slate-100 group-hover:text-emerald-300 transition truncate max-w-[130px]">
-                  {candidate.name}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate max-w-[130px]">
-                  {candidate.bmdcRegNo || 'BMDC Candidate'}
-                </p>
+                <div
+                  onClick={() => setActiveTab('profile_settings')}
+                  className="flex items-center gap-2.5 bg-slate-800/80 hover:bg-slate-700/80 px-2.5 py-1.5 rounded-xl border border-slate-700/80 cursor-pointer group transition"
+                  title={`Candidate Profile: ${candidate.name} (BMDC: ${candidate.bmdcRegNo || 'A-108294'})`}
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={candidate.avatarUrl}
+                      alt={candidate.name}
+                      className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/70 group-hover:ring-emerald-400 transition"
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900" />
+                  </div>
+
+                  <div className="flex flex-col text-left">
+                    <p className="text-xs font-bold text-slate-100 group-hover:text-emerald-300 transition truncate max-w-[120px] sm:max-w-[150px] leading-tight">
+                      {candidate.name ? (/^dr\.?\s+/i.test(candidate.name) ? candidate.name : `Dr. ${candidate.name}`) : 'Doctor Candidate'}
+                    </p>
+                    <p className="text-[10px] text-emerald-400 font-mono font-bold truncate max-w-[120px] sm:max-w-[150px] leading-tight">
+                      BMDC: {candidate.bmdcRegNo || 'A-108294'}
+                    </p>
+                  </div>
+                </div>
+
+                {isCandidateLoggedIn && (
+                  <button
+                    onClick={logoutCandidate}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 transition"
+                    title="Logout Candidate"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                )}
               </div>
-            </div>
-
-            {isAdminLoggedIn && (
-              <button
-                onClick={logoutAdmin}
-                className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/50 transition ml-1"
-                title="Logout Admin"
-              >
-                <LogOut size={16} />
-              </button>
             )}
           </div>
 

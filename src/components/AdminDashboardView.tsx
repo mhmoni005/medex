@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ExamSpecialtyItem } from '../types';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -8,6 +9,7 @@ import {
   FileCheck,
   CreditCard,
   Users,
+  User,
   Search,
   LogOut,
   Mail,
@@ -42,6 +44,8 @@ import {
   Eye,
   EyeOff,
   UserPlus,
+  UserMinus,
+  Crown,
   RefreshCw,
   CheckSquare,
   Lock,
@@ -103,22 +107,178 @@ export const AdminDashboardView: React.FC = () => {
     approveTransaction,
     candidate,
     adminEmail,
+    adminProfile,
+    updateAdminProfile,
     isAdminLoggedIn,
     loginAdmin,
     logoutAdmin,
     openAuthModal,
     setActiveTab,
     addRecallQuestion,
-    updateCandidate
+    updateCandidate,
+    examSpecialties,
+    addExamSpecialty,
+    updateExamSpecialty,
+    deleteExamSpecialty,
+    toggleExamSpecialtyLock,
+    studyGroups,
+    createStudyGroup,
+    deleteStudyGroup,
+    addCandidateToGroup,
+    removeCandidateFromGroup,
+    candidateDirectory
   } = useApp();
+
+  // Admin Account Edit Modal State
+  const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
+  const [adminEditForm, setAdminEditForm] = useState({
+    name: adminProfile?.name || 'Dr. M. H. Moni',
+    phone: adminProfile?.phone || '+8801700000000',
+    email: adminProfile?.email || 'mhmoni005@gmail.com',
+    avatarUrl: adminProfile?.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
+    designation: adminProfile?.designation || 'Senior Faculty & Controller of Examinations',
+    department: adminProfile?.department || 'Medical Education & Academic Standards'
+  });
+  const [adminEditSuccessMsg, setAdminEditSuccessMsg] = useState('');
+
+  // Sync edit form with stored admin profile
+  React.useEffect(() => {
+    if (adminProfile) {
+      setAdminEditForm({
+        name: adminProfile.name || 'Dr. M. H. Moni',
+        phone: adminProfile.phone || '+8801700000000',
+        email: adminProfile.email || 'mhmoni005@gmail.com',
+        avatarUrl: adminProfile.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
+        designation: adminProfile.designation || 'Senior Faculty & Controller of Examinations',
+        department: adminProfile.department || 'Medical Education & Academic Standards'
+      });
+    }
+  }, [adminProfile]);
+
+  const PRESET_AVATARS = [
+    { label: 'Senior Doctor (Male 1)', url: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80' },
+    { label: 'Senior Doctor (Female 1)', url: 'https://images.unsplash.com/photo-1594824813566-78a93272d3d9?w=150&auto=format&fit=crop&q=80' },
+    { label: 'Surgeon Admin (Male 2)', url: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80' },
+    { label: 'Consultant Admin (Female 2)', url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80' }
+  ];
+
+  const handleAdminAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setAdminEditForm(prev => ({ ...prev, avatarUrl: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveAdminProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateAdminProfile({
+      name: adminEditForm.name,
+      phone: adminEditForm.phone,
+      email: adminEditForm.email,
+      avatarUrl: adminEditForm.avatarUrl,
+      designation: adminEditForm.designation,
+      department: adminEditForm.department
+    });
+    setAdminEditSuccessMsg('Admin profile updated successfully!');
+    setTimeout(() => setAdminEditSuccessMsg(''), 4000);
+    setIsAdminEditModalOpen(false);
+  };
 
   // Top header tabs
   const [topNavTab, setTopNavTab] = useState<'billing' | 'subscriptions' | 'admin'>('admin');
 
   // Control cabinet active tab
   const [activeCabinetTab, setActiveCabinetTab] = useState<
-    'questions' | 'chapters' | 'mock_exams' | 'fcm' | 'gateways' | 'users' | 'revenues' | 'admin_accounts'
+    'questions' | 'chapters' | 'mock_exams' | 'fcm' | 'gateways' | 'users' | 'study_groups' | 'revenues' | 'admin_accounts' | 'specialties'
   >('questions');
+
+  // --- STUDY GROUPS MANAGEMENT TAB STATE ---
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupSpecialty, setNewGroupSpecialty] = useState<any>('FCPS Part I (Surgery)');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupEmoji, setNewGroupEmoji] = useState('🩺');
+  const [newGroupSupervisor, setNewGroupSupervisor] = useState(adminProfile?.name || 'Dr. M. H. Moni');
+  const [selectedCandidateIdsForNewGroup, setSelectedCandidateIdsForNewGroup] = useState<string[]>([]);
+  const [studyGroupMsg, setStudyGroupMsg] = useState('');
+  const [selectedGroupForCandAdd, setSelectedGroupForCandAdd] = useState<string | null>(null);
+  const [candToAddId, setCandToAddId] = useState<string>('');
+
+  // --- EXAM SPECIALTIES TAB STATE ---
+  const [newSpecName, setNewSpecName] = useState('');
+  const [newSpecMcqCount, setNewSpecMcqCount] = useState<number | ''>(1500);
+  const [newSpecChapterCount, setNewSpecChapterCount] = useState<number | ''>(12);
+  const [newSpecIconType, setNewSpecIconType] = useState('stethoscope');
+  const [newSpecIsLocked, setNewSpecIsLocked] = useState(false);
+  const [specialtySuccessMsg, setSpecialtySuccessMsg] = useState('');
+
+  const handleAddSpecialtySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSpecName.trim()) return;
+
+    addExamSpecialty({
+      name: newSpecName.trim(),
+      mcqCount: Number(newSpecMcqCount) || 1000,
+      chapterCount: Number(newSpecChapterCount) || 10,
+      iconType: newSpecIconType,
+      isLocked: newSpecIsLocked
+    });
+
+    setSpecialtySuccessMsg(`Exam Specialty "${newSpecName.trim()}" added to control cabinet!`);
+    setTimeout(() => setSpecialtySuccessMsg(''), 4000);
+
+    setNewSpecName('');
+    setNewSpecMcqCount(1500);
+    setNewSpecChapterCount(12);
+    setNewSpecIconType('stethoscope');
+    setNewSpecIsLocked(false);
+  };
+
+  const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | null>(null);
+  const [editSpecialtyForm, setEditSpecialtyForm] = useState<{
+    name: string;
+    mcqCount: number | '';
+    chapterCount: number | '';
+    iconType: string;
+    isLocked: boolean;
+  }>({
+    name: '',
+    mcqCount: 0,
+    chapterCount: 0,
+    iconType: 'stethoscope',
+    isLocked: false
+  });
+
+  const handleStartEditSpecialty = (spec: ExamSpecialtyItem) => {
+    setEditingSpecialtyId(spec.id);
+    setEditSpecialtyForm({
+      name: spec.name,
+      mcqCount: spec.mcqCount,
+      chapterCount: spec.chapterCount,
+      iconType: spec.iconType || 'stethoscope',
+      isLocked: !!spec.isLocked
+    });
+  };
+
+  const handleSaveEditSpecialty = (e: React.FormEvent, id: string) => {
+    e.preventDefault();
+    if (!editSpecialtyForm.name.trim()) return;
+    updateExamSpecialty(id, {
+      name: editSpecialtyForm.name.trim(),
+      mcqCount: Number(editSpecialtyForm.mcqCount) || 0,
+      chapterCount: Number(editSpecialtyForm.chapterCount) || 0,
+      iconType: editSpecialtyForm.iconType,
+      isLocked: editSpecialtyForm.isLocked
+    });
+    setEditingSpecialtyId(null);
+    setSpecialtySuccessMsg(`Exam Specialty "${editSpecialtyForm.name.trim()}" updated successfully!`);
+    setTimeout(() => setSpecialtySuccessMsg(''), 4000);
+  };
 
   // --- 1. QUESTIONS TAB STATE ---
   const [targetSpecialty, setTargetSpecialty] = useState('MS Residency (surgery faculty)');
@@ -130,6 +290,7 @@ export const AdminDashboardView: React.FC = () => {
   const [questionStatusFilter, setQuestionStatusFilter] = useState<'all' | 'pending_approval' | 'approved' | 'rejected'>('all');
 
   // Manual Question Creator State
+  const [questionFormatType, setQuestionFormatType] = useState<'SBA' | 'SBA (4 Options)' | 'True or False'>('SBA');
   const [manualStem, setManualStem] = useState('');
   const [manualOpt1, setManualOpt1] = useState('');
   const [manualOpt2, setManualOpt2] = useState('');
@@ -139,7 +300,7 @@ export const AdminDashboardView: React.FC = () => {
   const [correctOptIdx, setCorrectOptIdx] = useState(0);
   const [manualExplanation, setManualExplanation] = useState('');
   const [manualCitation, setManualCitation] = useState('');
-  const [isManualBuilderOpen, setIsManualBuilderOpen] = useState(false);
+  const [isManualBuilderOpen, setIsManualBuilderOpen] = useState(true);
 
   // --- 2. CHAPTERS & PDFS STATE ---
   const [chaptersList, setChaptersList] = useState<ChapterItem[]>([
@@ -252,10 +413,36 @@ export const AdminDashboardView: React.FC = () => {
   const [fcmPriority, setFcmPriority] = useState<'high' | 'normal'>('high');
   const [fcmSuccessMsg, setFcmSuccessMsg] = useState('');
 
-  // --- 5. GATEWAYS STATE ---
+  // --- 5. GATEWAYS & FEE ENGINE STATE ---
+  const [bkashMerchantNumber, setBkashMerchantNumber] = useState('01712345678');
+  const [nagadMerchantNumber, setNagadMerchantNumber] = useState('01887654321');
+  const [visaTerminalDetails, setVisaTerminalDetails] = useState('4532-7112-9023-4568');
+  const [mastercardTerminalDetails, setMastercardTerminalDetails] = useState('5412-7519-8834-1129');
+  const [amexTerminalDetails, setAmexTerminalDetails] = useState('3782-4567-8901-2345');
+  const [merchantSaveSuccessMsg, setMerchantSaveSuccessMsg] = useState('');
+
+  const [selectedExamSpecialty, setSelectedExamSpecialty] = useState('MS Residency (surgery faculty)');
+  const [fee1M, setFee1M] = useState('600');
+  const [fee3M, setFee3M] = useState('1500');
+  const [fee6M, setFee6M] = useState('2800');
+  const [fee12M, setFee12M] = useState('5000');
+  const [feeSaveSuccessMsg, setFeeSaveSuccessMsg] = useState('');
+
+  const [newSpecialtyInput, setNewSpecialtyInput] = useState('');
+  const [managedSpecialties, setManagedSpecialties] = useState<string[]>([
+    'MS Residency (surgery faculty)',
+    'MD Residency (medicine faculty)',
+    'MD Residency (Basic & paraclinical Faculty)',
+    'FCPS P-1(medicine faculty)',
+    'MRCS',
+    'FCPS P-1 (Gynae & Obs)',
+    'Diploma (Dentistry)'
+  ]);
+  const [specialtyMsg, setSpecialtyMsg] = useState('');
+
   const [gatewaysList, setGatewaysList] = useState<GatewayConfig[]>([
     { id: 'gw_bkash', name: 'bKash Merchant', merchantNumber: '01712345678', chargePercentage: 1.5, isAutoVerify: true, isActive: true },
-    { id: 'gw_nagad', name: 'Nagad Personal/Merchant', merchantNumber: '01812345678', chargePercentage: 1.0, isAutoVerify: true, isActive: true },
+    { id: 'gw_nagad', name: 'Nagad Personal/Merchant', merchantNumber: '01887654321', chargePercentage: 1.0, isAutoVerify: true, isActive: true },
     { id: 'gw_rocket', name: 'Rocket Merchant', merchantNumber: '01912345678', chargePercentage: 1.2, isAutoVerify: false, isActive: true },
     { id: 'gw_upay', name: 'Upay Pay', merchantNumber: '01612345678', chargePercentage: 1.0, isAutoVerify: false, isActive: false }
   ]);
@@ -268,6 +455,7 @@ export const AdminDashboardView: React.FC = () => {
   const [candidateList, setCandidateList] = useState([
     {
       id: candidate.id,
+      candidateId: candidate.candidateId || 'CAND-108294',
       name: candidate.name,
       email: candidate.email,
       phone: candidate.phone,
@@ -279,6 +467,7 @@ export const AdminDashboardView: React.FC = () => {
     },
     {
       id: 'cand_102',
+      candidateId: 'CAND-84920',
       name: 'Dr. Tanvir Ahmed',
       email: 'tanvir.med@gmail.com',
       phone: '+8801722223333',
@@ -290,6 +479,7 @@ export const AdminDashboardView: React.FC = () => {
     },
     {
       id: 'cand_103',
+      candidateId: 'CAND-91023',
       name: 'Dr. Nusrat Jahan',
       email: 'dr.nusrat@yahoo.com',
       phone: '+8801833334444',
@@ -310,8 +500,8 @@ export const AdminDashboardView: React.FC = () => {
   const [subAdminEmail, setSubAdminEmail] = useState('');
   const [subAdminRole, setSubAdminRole] = useState('Senior Faculty Reviewer');
   const [subAdminsList, setSubAdminsList] = useState([
-    { id: 'adm_1', email: adminEmail, role: 'Primary Superuser', status: 'Active Now' },
-    { id: 'adm_2', email: 'prof.surgery@medexam.bd', role: 'Surgery Faculty Reviewer', status: 'Active' }
+    { id: 'adm_1', adminId: 'ADM-SUPER-001', email: adminEmail, role: 'Primary Superuser', status: 'Active Now' },
+    { id: 'adm_2', adminId: 'ADM-701', email: 'prof.surgery@medexam.bd', role: 'Surgery Faculty Reviewer', status: 'Active' }
   ]);
 
   // Login handler
@@ -364,20 +554,25 @@ export const AdminDashboardView: React.FC = () => {
   // --- MANUAL QUESTION SUBMIT ---
   const handleManualQuestionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualStem.trim() || !manualOpt1.trim() || !manualOpt2.trim()) return;
+    if (!manualStem.trim()) return;
+
+    const optionsList = [
+      { id: '1', text: manualOpt1 || 'Option A', isCorrect: correctOptIdx === 0 },
+      { id: '2', text: manualOpt2 || 'Option B', isCorrect: correctOptIdx === 1 },
+      { id: '3', text: manualOpt3 || 'Option C', isCorrect: correctOptIdx === 2 },
+      { id: '4', text: manualOpt4 || 'Option D', isCorrect: correctOptIdx === 3 }
+    ];
+
+    if (questionFormatType === 'SBA') {
+      optionsList.push({ id: '5', text: manualOpt5 || 'Option E', isCorrect: correctOptIdx === 4 });
+    }
 
     addRecallQuestion({
       stem: manualStem,
-      options: [
-        { id: '1', text: manualOpt1, isCorrect: correctOptIdx === 0 },
-        { id: '2', text: manualOpt2, isCorrect: correctOptIdx === 1 },
-        { id: '3', text: manualOpt3 || 'Option C', isCorrect: correctOptIdx === 2 },
-        { id: '4', text: manualOpt4 || 'Option D', isCorrect: correctOptIdx === 3 },
-        { id: '5', text: manualOpt5 || 'Option E', isCorrect: correctOptIdx === 4 }
-      ],
-      type: 'SBA',
+      options: optionsList,
+      type: questionFormatType === 'True or False' ? 'TF' : 'SBA',
       explanation: manualExplanation || 'Detailed clinical explanation as reviewed by faculty.',
-      facultyTag: 'Surgery Faculty',
+      facultyTag: targetSpecialty.includes('Surgery') ? 'Surgery Faculty' : targetSpecialty.includes('Medicine') ? 'Medicine Faculty' : 'General Faculty',
       specialtyTag: targetSpecialty,
       examSessionTag: 'July 2026',
       textbookCitation: manualCitation || 'Standard Textbook Reference'
@@ -391,9 +586,8 @@ export const AdminDashboardView: React.FC = () => {
     setManualOpt5('');
     setManualExplanation('');
     setManualCitation('');
-    setIsManualBuilderOpen(false);
-    setAiGenSuccess('Manual MCQ added to Question Bank Queue!');
-    setTimeout(() => setAiGenSuccess(''), 3000);
+    setAiGenSuccess('✨ Scribed New Question instantly and published to Question Bank!');
+    setTimeout(() => setAiGenSuccess(''), 4000);
   };
 
   // --- CHAPTER ACTIONS ---
@@ -489,7 +683,51 @@ export const AdminDashboardView: React.FC = () => {
     setFcmAlertsList(prev => prev.filter(f => f.id !== id));
   };
 
-  // --- GATEWAY ACTIONS ---
+  // --- GATEWAY & MERCHANT ACTIONS ---
+  const handleSaveMerchantChannels = (e: React.FormEvent) => {
+    e.preventDefault();
+    setGatewaysList(prev => prev.map(gw => {
+      if (gw.id === 'gw_bkash') return { ...gw, merchantNumber: bkashMerchantNumber };
+      if (gw.id === 'gw_nagad') return { ...gw, merchantNumber: nagadMerchantNumber };
+      return gw;
+    }));
+    setMerchantSaveSuccessMsg('✅ Merchant channels updated and published live to checkout screen!');
+    setTimeout(() => setMerchantSaveSuccessMsg(''), 4000);
+  };
+
+  const handleSaveAdjustedFees = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFeeSaveSuccessMsg(`✅ Adjusted subscription fees saved for ${selectedExamSpecialty}!`);
+    setTimeout(() => setFeeSaveSuccessMsg(''), 4000);
+  };
+
+  const handleAddSpecialty = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSpecialtyInput.trim()) return;
+    const cleanName = newSpecialtyInput.trim();
+    if (!examSpecialties.some(s => s.name.toLowerCase() === cleanName.toLowerCase())) {
+      addExamSpecialty({
+        name: cleanName,
+        mcqCount: 1500,
+        chapterCount: 12,
+        iconType: 'stethoscope',
+        isLocked: false
+      });
+    }
+    setNewSpecialtyInput('');
+    setSpecialtyMsg('✨ Specialty / Course added to control cabinet & directory successfully!');
+    setTimeout(() => setSpecialtyMsg(''), 3000);
+  };
+
+  const handleDeleteSpecialty = (name: string) => {
+    const target = examSpecialties.find(s => s.name.toLowerCase() === name.toLowerCase());
+    if (target) {
+      deleteExamSpecialty(target.id);
+    }
+    setSpecialtyMsg('Specialty removed from control cabinet.');
+    setTimeout(() => setSpecialtyMsg(''), 3000);
+  };
+
   const toggleGatewayActive = (id: string) => {
     setGatewaysList(prev =>
       prev.map(g => (g.id === id ? { ...g, isActive: !g.isActive } : g))
@@ -556,12 +794,19 @@ export const AdminDashboardView: React.FC = () => {
     e.preventDefault();
     if (!subAdminEmail.trim()) return;
 
+    const newAdminNum = 700 + subAdminsList.length;
     setSubAdminsList(prev => [
       ...prev,
-      { id: 'adm_' + Date.now(), email: subAdminEmail.trim(), role: subAdminRole, status: 'Active' }
+      {
+        id: 'adm_' + Date.now(),
+        adminId: `ADM-${newAdminNum}`,
+        email: subAdminEmail.trim(),
+        role: subAdminRole,
+        status: 'Active'
+      }
     ]);
     setSubAdminEmail('');
-    setAdminPassMsg(`✅ Added ${subAdminRole} (${subAdminEmail}) to faculty access list.`);
+    setAdminPassMsg(`✅ Added ${subAdminRole} (${subAdminEmail}) with Admin ID [ADM-${newAdminNum}] to faculty access list.`);
     setTimeout(() => setAdminPassMsg(''), 4000);
   };
 
@@ -671,19 +916,42 @@ export const AdminDashboardView: React.FC = () => {
         
         {/* Left Side: Admin Badge & Doctor Name */}
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow shrink-0">
-            <ShieldCheck size={22} />
+          <div
+            onClick={() => setIsAdminEditModalOpen(true)}
+            className="relative cursor-pointer group shrink-0"
+            title="Click to edit admin picture, name & phone"
+          >
+            <img
+              src={adminProfile?.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80'}
+              alt={adminProfile?.name}
+              className="w-12 h-12 rounded-full object-cover ring-2 ring-amber-400 shadow-md group-hover:brightness-90 transition"
+            />
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center border-2 border-slate-900 shadow">
+              <Edit3 size={10} />
+            </span>
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-black tracking-wider text-slate-800 dark:text-slate-200 uppercase">
-                PRIMARY ADMIN
+                {adminProfile?.name || 'Dr. M. H. Moni'}
+              </span>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-black bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shadow-xs">
+                <ShieldCheck size={11} className="text-amber-600 dark:text-amber-400" />
+                {adminProfile?.adminId || 'ADM-SUPER-001'}
               </span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
             </div>
-            <p className="text-xs font-semibold text-rose-500 cursor-pointer hover:underline">
-              Set Doctor Name
-            </p>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
+              <span>📞 <strong className="text-slate-800 dark:text-slate-200 font-mono">{adminProfile?.phone || '+8801700000000'}</strong></span>
+              <span>• ✉️ <strong className="text-amber-600 dark:text-amber-400 font-mono">{adminProfile?.email || adminEmail}</strong></span>
+              <button
+                onClick={() => setIsAdminEditModalOpen(true)}
+                className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 ml-1"
+              >
+                <Edit3 size={12} />
+                <span>Edit Profile</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -730,25 +998,50 @@ export const AdminDashboardView: React.FC = () => {
       <main className="space-y-6">
         
         {/* Title Bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2 uppercase tracking-tight">
               <Zap size={22} className="text-amber-500 fill-amber-500" />
               <span>ADMIN CONTROL CABINET</span>
             </h1>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-              Admin: (Primary Superuser)
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 inline-flex items-center gap-1">
+                <ShieldCheck size={12} className="text-amber-600 dark:text-amber-400" />
+                ADMIN ID: {adminProfile?.adminId || 'ADM-SUPER-001'}
+              </span>
+              <span className="text-xs text-slate-500 font-semibold">• {adminProfile?.name || 'Primary Superuser'} ({adminProfile?.email || adminEmail})</span>
+            </div>
           </div>
 
-          <button
-            onClick={logoutAdmin}
-            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-sm flex items-center gap-1.5"
-          >
-            <LogOut size={14} />
-            <span>Exit Panel</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAdminEditModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+            >
+              <Edit3 size={14} />
+              <span>Edit Admin Profile</span>
+            </button>
+            <button
+              onClick={logoutAdmin}
+              className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+            >
+              <LogOut size={14} />
+              <span>Exit Panel</span>
+            </button>
+          </div>
         </div>
+
+        {adminEditSuccessMsg && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+              <span>{adminEditSuccessMsg}</span>
+            </div>
+            <button onClick={() => setAdminEditSuccessMsg('')} className="text-emerald-400 hover:text-emerald-200">
+              <XCircle size={15} />
+            </button>
+          </div>
+        )}
 
         {/* ADMIN CATEGORY BUTTONS ROW (8 CABINET TABS) */}
         <div className="flex flex-wrap items-center gap-2.5">
@@ -835,6 +1128,21 @@ export const AdminDashboardView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveCabinetTab('study_groups')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm ${
+              activeCabinetTab === 'study_groups'
+                ? 'bg-blue-600 text-white shadow-blue-500/20'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Users size={15} className="text-emerald-500" />
+            <span>Study Groups</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold">
+              {studyGroups.length}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveCabinetTab('revenues')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm ${
               activeCabinetTab === 'revenues'
@@ -857,6 +1165,21 @@ export const AdminDashboardView: React.FC = () => {
             <Key size={15} className="text-amber-600" />
             <span>Admin Accounts</span>
           </button>
+
+          <button
+            onClick={() => setActiveCabinetTab('specialties')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm ${
+              activeCabinetTab === 'specialties'
+                ? 'bg-blue-600 text-white shadow-blue-500/20'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Layers size={15} className="text-sky-500" />
+            <span>Exam Specialties</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300 font-extrabold">
+              {examSpecialties.length}
+            </span>
+          </button>
         </div>
 
         {/* =========================================================================
@@ -871,203 +1194,275 @@ export const AdminDashboardView: React.FC = () => {
               <span>GEMINI AI & EASY MCQ INSTANT SCRIBE</span>
             </h2>
 
-            {/* QUICK QUESTION BUILDER CARD */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
+            {/* QUICK QUESTION BUILDER CARD (SCRIBE MCQ FORM PARAMETERS) */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                    <FileText size={22} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Quick Question Builder</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Scribe manually, or paste raw notes to auto-draft using Gemini AI
-                    </p>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 tracking-tight uppercase">
+                  Scribe MCQ Form Parameters
+                </h3>
+                {aiGenSuccess && (
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 size={14} /> {aiGenSuccess}
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleManualQuestionSubmit} className="space-y-4">
+                {/* 1. Specialty Category */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    Specialty Category
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={targetSpecialty}
+                      onChange={e => setTargetSpecialty(e.target.value)}
+                      className="w-full bg-slate-50/50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-semibold rounded-2xl px-5 py-3.5 border border-slate-200 dark:border-slate-700 appearance-none focus:outline-none focus:border-blue-600"
+                    >
+                      {examSpecialties.map(spec => (
+                        <option key={spec.id} value={spec.name}>
+                          {spec.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setIsManualBuilderOpen(!isManualBuilderOpen)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <PlusCircle size={15} className="text-blue-500" />
-                  <span>{isManualBuilderOpen ? 'Close Form' : 'Manual Form Scribe'}</span>
-                </button>
-              </div>
-
-              {/* TARGET SPECIALTY & CHAPTER TOPIC CONTAINER */}
-              <div className="p-5 rounded-2xl bg-blue-50/60 dark:bg-slate-800/60 border border-blue-200/80 dark:border-slate-700/80 space-y-3">
-                
-                <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 flex items-center gap-1.5 uppercase tracking-wider">
-                  <Target size={16} className="text-rose-500" />
-                  <span>TARGET SPECIALTY & CHAPTER TOPIC</span>
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      Destination Course / Specialty
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={targetSpecialty}
-                        onChange={e => setTargetSpecialty(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl px-4 py-3 border border-slate-300 dark:border-slate-700 appearance-none focus:outline-none focus:border-blue-500"
+                {/* 2. Question Format Type */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    Question Format Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-1 rounded-2xl">
+                    {(['SBA', 'SBA (4 Options)', 'True or False'] as const).map(fmt => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setQuestionFormatType(fmt)}
+                        className={`py-3.5 px-4 rounded-xl text-xs font-bold transition text-center ${
+                          questionFormatType === fmt
+                            ? 'bg-[#0066cc] text-white shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
                       >
-                        <option value="MS Residency (surgery faculty)">MS Residency (surgery faculty)</option>
-                        <option value="FCPS Part I (Surgery)">FCPS Part I (Surgery)</option>
-                        <option value="FCPS Part I (Medicine)">FCPS Part I (Medicine)</option>
-                        <option value="MD Cardiology">MD Cardiology</option>
-                        <option value="FCPS Part I (Gynae & Obs)">FCPS Part I (Gynae & Obs)</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      Chapter / Subject Unit
-                    </label>
-                    <input
-                      type="text"
-                      value={subjectUnit}
-                      onChange={e => setSubjectUnit(e.target.value)}
-                      placeholder="General High-Yield"
-                      className="w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl px-4 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-              </div>
-
-              {/* MANUAL BUILDER FORM (COLLAPSIBLE) */}
-              {isManualBuilderOpen && (
-                <form onSubmit={handleManualQuestionSubmit} className="p-5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 space-y-4 animate-fade-in">
-                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase flex items-center gap-1.5">
-                    <Edit3 size={15} className="text-emerald-500" />
-                    <span>Manual Question Scribe</span>
-                  </h4>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Question Stem / Clinical Scenario
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={manualStem}
-                      onChange={e => setManualStem(e.target.value)}
-                      placeholder="Enter clinical vignette or recall stem..."
-                      className="w-full bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 rounded-xl p-3 border border-slate-300 dark:border-slate-700"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                      { val: manualOpt1, setVal: setManualOpt1, idx: 0, label: 'Option A' },
-                      { val: manualOpt2, setVal: setManualOpt2, idx: 1, label: 'Option B' },
-                      { val: manualOpt3, setVal: setManualOpt3, idx: 2, label: 'Option C' },
-                      { val: manualOpt4, setVal: setManualOpt4, idx: 3, label: 'Option D' },
-                      { val: manualOpt5, setVal: setManualOpt5, idx: 4, label: 'Option E' }
-                    ].map(opt => (
-                      <div key={opt.idx} className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <input
-                          type="radio"
-                          name="correctOpt"
-                          checked={correctOptIdx === opt.idx}
-                          onChange={() => setCorrectOptIdx(opt.idx)}
-                          className="accent-emerald-500"
-                        />
-                        <input
-                          type="text"
-                          value={opt.val}
-                          onChange={e => opt.setVal(e.target.value)}
-                          placeholder={`${opt.label}`}
-                          className="w-full bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
-                          required={opt.idx < 2}
-                        />
-                      </div>
+                        {fmt}
+                      </button>
                     ))}
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 3. Chapter / Subject Topic */}
+                <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                    Chapter / Subject Topic
+                  </label>
+                  <input
+                    type="text"
+                    value={subjectUnit}
+                    onChange={e => setSubjectUnit(e.target.value)}
+                    placeholder="Trauma"
+                    className="w-full bg-transparent text-sm font-semibold text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                  />
+                </div>
+
+                {/* 4. Question Stem Text */}
+                <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                    Question Stem Text
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={manualStem}
+                    onChange={e => setManualStem(e.target.value)}
+                    placeholder="Question Stem Text"
+                    className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400 resize-none"
+                    required
+                  />
+                </div>
+
+                {/* 5 & 6. Option A & Option B */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                      Option A
+                    </label>
                     <input
                       type="text"
-                      value={manualExplanation}
-                      onChange={e => setManualExplanation(e.target.value)}
-                      placeholder="Clinical Explanation..."
-                      className="w-full bg-white dark:bg-slate-900 text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700"
-                    />
-                    <input
-                      type="text"
-                      value={manualCitation}
-                      onChange={e => setManualCitation(e.target.value)}
-                      placeholder="Textbook Citation (e.g. Bailey & Love)"
-                      className="w-full bg-white dark:bg-slate-900 text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700"
+                      value={manualOpt1}
+                      onChange={e => setManualOpt1(e.target.value)}
+                      placeholder="Option A"
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition"
-                  >
-                    Save Manual Question
-                  </button>
-                </form>
-              )}
-
-              {/* OPTION 1: AI INSTANT GENERATOR */}
-              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 relative">
-                
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-blue-800 dark:text-blue-300 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Zap size={16} className="text-amber-500 fill-amber-500" />
-                    <span>OPTION 1: AI INSTANT GENERATOR</span>
-                  </h4>
-
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                    Gemini Powered
-                  </span>
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                      Option B
+                    </label>
+                    <input
+                      type="text"
+                      value={manualOpt2}
+                      onChange={e => setManualOpt2(e.target.value)}
+                      placeholder="Option B"
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
                 </div>
 
-                {aiGenSuccess && (
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                    <span>{aiGenSuccess}</span>
+                {/* 7 & 8. Option C & Option D */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                      Option C
+                    </label>
+                    <input
+                      type="text"
+                      value={manualOpt3}
+                      onChange={e => setManualOpt3(e.target.value)}
+                      placeholder="Option C"
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                      Option D
+                    </label>
+                    <input
+                      type="text"
+                      value={manualOpt4}
+                      onChange={e => setManualOpt4(e.target.value)}
+                      placeholder="Option D"
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+
+                {/* 9. Option E (Full width if SBA standard 5 options) */}
+                {questionFormatType === 'SBA' && (
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                      Option E
+                    </label>
+                    <input
+                      type="text"
+                      value={manualOpt5}
+                      onChange={e => setManualOpt5(e.target.value)}
+                      placeholder="Option E"
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
                   </div>
                 )}
 
+                {/* 10. Correct Option */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    Correct Option
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {(questionFormatType === 'SBA' ? ['A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D']).map((letter, idx) => (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() => setCorrectOptIdx(idx)}
+                        className={`w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center transition ${
+                          correctOptIdx === idx
+                            ? 'bg-[#0066cc] text-white shadow-sm ring-2 ring-blue-600/30'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {letter}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 11. Explanation details */}
+                <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                    Explanation details
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={manualExplanation}
+                    onChange={e => setManualExplanation(e.target.value)}
+                    placeholder="Explanation details"
+                    className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400 resize-none"
+                  />
+                </div>
+
+                {/* 12. Standard Textbook reference citation source */}
+                <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400">
+                    Standard Textbook reference citation source
+                  </label>
+                  <input
+                    type="text"
+                    value={manualCitation}
+                    onChange={e => setManualCitation(e.target.value)}
+                    placeholder="Standard Textbook reference citation source"
+                    className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                  />
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  className="w-full bg-[#007a40] hover:bg-[#006635] text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow transition flex items-center justify-center gap-2 mt-2"
+                >
+                  Scribe New Question instantly
+                </button>
+              </form>
+
+            </div>
+
+            {/* BATCH EXPORT & BULK WORKBOOK EXCEL/CSV PARSER & GEMINI AI DRAFTER */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <span>📁 BATCH EXPORT & BULK WORKBOOK EXCEL/CSV PARSER</span>
+              </h3>
+
+              {/* Gemini AI Auto-draft Collapsible / Option */}
+              <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 flex items-center gap-1.5 uppercase">
+                    <Sparkles size={16} className="text-amber-500 fill-amber-500" />
+                    <span>OPTIONAL: GEMINI AI PARSER & AUTO-DRAFT</span>
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    Gemini 1.5 Pro
+                  </span>
+                </div>
+
                 <form onSubmit={handleGenerateAiQuestion} className="space-y-3">
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={aiNotesInput}
                     onChange={e => setAiNotesInput(e.target.value)}
-                    placeholder="Paste clinical guidelines, textbook paragraphs, lecture notes, or topics like: 'Management of acute cholangitis'"
-                    className="w-full bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 text-xs rounded-xl p-4 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-blue-500 resize-y"
+                    placeholder="Paste clinical guidelines, textbook paragraphs, or lecture notes..."
+                    className="w-full bg-white dark:bg-slate-900 text-xs rounded-xl p-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-blue-500"
                   />
-
                   <button
                     type="submit"
                     disabled={isGeneratingAi || !aiNotesInput.trim()}
-                    className="py-2.5 px-5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition shadow-md flex items-center gap-2"
+                    className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-2"
                   >
                     {isGeneratingAi ? (
                       <>
-                        <BrainCircuit size={16} className="animate-spin text-amber-300" />
+                        <BrainCircuit size={15} className="animate-spin text-amber-300" />
                         <span>Gemini AI Drafting SBA Question...</span>
                       </>
                     ) : (
                       <>
-                        <Sparkles size={16} className="text-amber-300" />
-                        <span>Generate Question using Gemini AI</span>
+                        <Sparkles size={15} className="text-amber-300" />
+                        <span>Generate Question with Gemini AI</span>
                       </>
                     )}
                   </button>
                 </form>
-
               </div>
-
             </div>
 
             {/* QUESTION BANK MODERATION & LIST QUEUE */}
@@ -1230,10 +1625,11 @@ export const AdminDashboardView: React.FC = () => {
                     onChange={e => setNewChapterSpecialty(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700"
                   >
-                    <option value="MS Residency (surgery faculty)">MS Residency (surgery faculty)</option>
-                    <option value="FCPS Part I (Surgery)">FCPS Part I (Surgery)</option>
-                    <option value="FCPS Part I (Medicine)">FCPS Part I (Medicine)</option>
-                    <option value="FCPS Part I (Gynae & Obs)">FCPS Part I (Gynae & Obs)</option>
+                    {examSpecialties.map(spec => (
+                      <option key={spec.id} value={spec.name}>
+                        {spec.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1380,9 +1776,11 @@ export const AdminDashboardView: React.FC = () => {
                     onChange={e => setNewExamSpecialty(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700"
                   >
-                    <option value="MS Residency (surgery faculty)">MS Residency (surgery faculty)</option>
-                    <option value="FCPS Part I (Surgery)">FCPS Part I (Surgery)</option>
-                    <option value="FCPS Part I (Medicine)">FCPS Part I (Medicine)</option>
+                    {examSpecialties.map(spec => (
+                      <option key={spec.id} value={spec.name}>
+                        {spec.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1533,9 +1931,11 @@ export const AdminDashboardView: React.FC = () => {
                       className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700"
                     >
                       <option value="All Candidates">All Registered Candidates</option>
-                      <option value="MS Residency (surgery faculty)">MS Residency Surgery</option>
-                      <option value="FCPS Part I (Surgery)">FCPS Part I Surgery</option>
-                      <option value="FCPS Part I (Medicine)">FCPS Part I Medicine</option>
+                      {examSpecialties.map(spec => (
+                        <option key={spec.id} value={spec.name}>
+                          {spec.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1602,53 +2002,288 @@ export const AdminDashboardView: React.FC = () => {
             TAB 5: PAYMENT GATEWAYS & TRANSACTIONS
            ========================================================================= */}
         {activeCabinetTab === 'gateways' && (
-          <div className="space-y-6">
+          <div className="space-y-8 animate-fade-in">
             
-            {/* GATEWAY CONFIGURATIONS */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <Settings size={18} className="text-teal-500" />
-                <span>bKash / Nagad / Rocket Payment Gateway Configs</span>
-              </h3>
+            {/* 1. CONFIGURE PAYMENT GATEWAY CHANNELS */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>⚙ CONFIGURE PAYMENT GATEWAY CHANNELS</span>
+                </h3>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+                  Configures the phone numbers/card routing terminals visible to students in the checkout screen in real time.
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {gatewaysList.map(gw => (
-                  <div key={gw.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-3 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-slate-900 dark:text-white text-sm">{gw.name}</span>
-                      <button
-                        onClick={() => toggleGatewayActive(gw.id)}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                          gw.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}
+              <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                {merchantSaveSuccessMsg && (
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    <span>{merchantSaveSuccessMsg}</span>
+                  </p>
+                )}
+
+                <form onSubmit={handleSaveMerchantChannels} className="space-y-4">
+                  {/* bKash */}
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      bKash Merchant/Send Money Number
+                    </label>
+                    <input
+                      type="text"
+                      value={bkashMerchantNumber}
+                      onChange={e => setBkashMerchantNumber(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Nagad */}
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      Nagad Merchant/Send Money Number
+                    </label>
+                    <input
+                      type="text"
+                      value={nagadMerchantNumber}
+                      onChange={e => setNagadMerchantNumber(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Visa */}
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      Visa Terminal Account Details
+                    </label>
+                    <input
+                      type="text"
+                      value={visaTerminalDetails}
+                      onChange={e => setVisaTerminalDetails(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Mastercard */}
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      Mastercard Terminal Account Details
+                    </label>
+                    <input
+                      type="text"
+                      value={mastercardTerminalDetails}
+                      onChange={e => setMastercardTerminalDetails(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Amex */}
+                  <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      American Express (Amex) Terminal Account
+                    </label>
+                    <input
+                      type="text"
+                      value={amexTerminalDetails}
+                      onChange={e => setAmexTerminalDetails(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#007a40] hover:bg-[#006635] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-sm"
+                  >
+                    SAVE MERCHANT CHANNELS
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* 2. CONFIGURE EXAM SUBSCRIPTION FEE ENGINE */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>📊 CONFIGURE EXAM SUBSCRIPTION FEE ENGINE</span>
+                </h3>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+                  Set and modify prices (BDT) dynamically for all 13 specialties based on duration.
+                </p>
+              </div>
+
+              <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                {feeSaveSuccessMsg && (
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    <span>{feeSaveSuccessMsg}</span>
+                  </p>
+                )}
+
+                <form onSubmit={handleSaveAdjustedFees} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                      Choose Exam Specialty to Adjust:
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedExamSpecialty}
+                        onChange={e => setSelectedExamSpecialty(e.target.value)}
+                        className="w-full bg-slate-50/70 dark:bg-slate-800/70 text-slate-900 dark:text-white text-xs font-bold rounded-2xl px-5 py-3.5 border border-slate-200 dark:border-slate-700 appearance-none focus:outline-none focus:border-blue-600"
                       >
-                        {gw.isActive ? 'ACTIVE' : 'DISABLED'}
-                      </button>
+                        {managedSpecialties.map(spec => (
+                          <option key={spec} value={spec}>{spec}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                      <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        1 Month (BDT)
+                      </label>
+                      <input
+                        type="text"
+                        value={fee1M}
+                        onChange={e => setFee1M(e.target.value)}
+                        className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
+                      />
                     </div>
 
-                    <div className="space-y-1 font-mono text-[11px] text-slate-600 dark:text-slate-300">
-                      <p>Merchant #: <strong>{gw.merchantNumber}</strong></p>
-                      <p>Charge: <strong>{gw.chargePercentage}%</strong></p>
+                    <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                      <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        3 Months (BDT)
+                      </label>
+                      <input
+                        type="text"
+                        value={fee3M}
+                        onChange={e => setFee3M(e.target.value)}
+                        className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
+                      />
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px]">
-                      <span>Auto-Verify TrxID:</span>
-                      <button
-                        onClick={() => toggleGatewayAutoVerify(gw.id)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          gw.isAutoVerify ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'
-                        }`}
+                    <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                      <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        6 Months (BDT)
+                      </label>
+                      <input
+                        type="text"
+                        value={fee6M}
+                        onChange={e => setFee6M(e.target.value)}
+                        className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="relative border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                      <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        12 Months (BDT)
+                      </label>
+                      <input
+                        type="text"
+                        value={fee12M}
+                        onChange={e => setFee12M(e.target.value)}
+                        className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#0066cc] hover:bg-[#0052a3] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-sm"
+                  >
+                    SAVE ADJUSTED FEES
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* 3. MANAGE EXAM SPECIALTIES DIRECTORY */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>🩺 MANAGE EXAM SPECIALTIES DIRECTORY</span>
+                </h3>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+                  Add or delete medical specialties and courses dynamically. These changes will reflect immediately across all student screens and dropdown selectors.
+                </p>
+              </div>
+
+              <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                {specialtyMsg && (
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    <span>{specialtyMsg}</span>
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                    Add New Specialty / Course:
+                  </label>
+                  <form onSubmit={handleAddSpecialty} className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-2.5 bg-white dark:bg-slate-900 focus-within:border-blue-600">
+                      <input
+                        type="text"
+                        value={newSpecialtyInput}
+                        onChange={e => setNewSpecialtyInput(e.target.value)}
+                        placeholder="e.g. FCPS P-1 (Gynae & Obs)"
+                        className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-[#007a40] hover:bg-[#006635] text-white px-8 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition shrink-0"
+                    >
+                      ADD
+                    </button>
+                  </form>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                    Active Specialties & Delete Panel:
+                  </label>
+                  <div className="space-y-2">
+                    {examSpecialties.map((specItem) => (
+                      <div
+                        key={specItem.id}
+                        className="p-3.5 px-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
                       >
-                        {gw.isAutoVerify ? 'ON' : 'MANUAL'}
-                      </button>
-                    </div>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{specItem.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSpecialty(specItem.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
+                          title="Delete Specialty"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. LIVE RATE CARD DISCOVERY */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                LIVE RATE CARD DISCOVERY
+              </h4>
+              <div className="space-y-3 bg-slate-50/60 dark:bg-slate-900/40 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                {examSpecialties.map((specItem) => (
+                  <div key={specItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-700 dark:text-slate-300">
+                    <span className="font-bold text-blue-900 dark:text-blue-400">{specItem.name}</span>
+                    <span className="font-mono text-slate-600 dark:text-slate-400 text-[11px]">
+                      1M: {fee1M} | 3M: {fee3M} | 6M: {fee6M} | 12M: {fee12M}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* TRANSACTIONS QUEUE */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            {/* 5. SUBSCRIPTION PAYMENT VERIFICATION QUEUE */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 pt-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <CreditCard size={18} className="text-amber-500" />
@@ -1704,8 +2339,367 @@ export const AdminDashboardView: React.FC = () => {
         )}
 
         {/* =========================================================================
-            TAB 6: USERS & CANDIDATE ROSTER
+            STUDY GROUPS MANAGEMENT TAB (ADMIN LEVEL)
            ========================================================================= */}
+        {activeCabinetTab === 'study_groups' && (
+          <div className="space-y-6">
+            
+            {studyGroupMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between shadow-sm animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                  <span>{studyGroupMsg}</span>
+                </div>
+                <button onClick={() => setStudyGroupMsg('')} className="text-emerald-400 hover:text-emerald-200">
+                  <XCircle size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* CREATE NEW STUDY GROUP FORM */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <PlusCircle size={18} className="text-emerald-500" />
+                    <span>Create New Specialty Study Group</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Admin acts as Supervisor and can assign candidates to groups</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono font-bold border border-emerald-300 dark:border-emerald-800">
+                  Admin Supervisor Access
+                </span>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newGroupName.trim()) return;
+                  createStudyGroup({
+                    name: newGroupName.trim(),
+                    specialtyTag: newGroupSpecialty,
+                    description: newGroupDesc.trim() || 'Specialty medical group managed by Faculty Admin.',
+                    iconEmoji: newGroupEmoji || '🩺',
+                    isPrivate: false,
+                    facultySupervisor: newGroupSupervisor || adminProfile?.name || 'Dr. M. H. Moni',
+                    adminId: adminProfile?.adminId || 'ADM-SUPER-001',
+                    adminName: adminProfile?.name || 'Dr. M. H. Moni',
+                    recentActivity: 'Created by Admin',
+                    memberCandidateIds: selectedCandidateIdsForNewGroup.length > 0 ? selectedCandidateIdsForNewGroup : [candidate.id]
+                  });
+                  setStudyGroupMsg(`✨ Study Group "${newGroupName.trim()}" created! Admin (${adminProfile?.name || 'Dr. M. H. Moni'}) assigned as Supervisor.`);
+                  setTimeout(() => setStudyGroupMsg(''), 4000);
+                  setNewGroupName('');
+                  setNewGroupDesc('');
+                  setSelectedCandidateIdsForNewGroup([]);
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1 lg:col-span-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Group Name / Title</label>
+                    <input
+                      type="text"
+                      value={newGroupName}
+                      onChange={e => setNewGroupName(e.target.value)}
+                      placeholder="e.g. FCPS Surgery Mastermind Circle"
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Target Specialty Tag</label>
+                    <select
+                      value={newGroupSpecialty}
+                      onChange={e => setNewGroupSpecialty(e.target.value as any)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500 font-bold text-emerald-600 dark:text-emerald-400"
+                    >
+                      {examSpecialties && examSpecialties.length > 0 ? (
+                        examSpecialties.map(sp => (
+                          <option key={sp.id} value={sp.name}>
+                            {sp.iconEmoji} {sp.name} {sp.isLocked ? '(Premium Plan)' : '(Open Pass)'}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="FCPS Part I (Surgery)">FCPS Part I (Surgery)</option>
+                          <option value="FCPS Part I (Medicine)">FCPS Part I (Medicine)</option>
+                          <option value="FCPS Part I (Gynae & Obs)">FCPS Part I (Gynae & Obs)</option>
+                          <option value="MS General Surgery">MS General Surgery</option>
+                          <option value="MS Orthopedics">MS Orthopedics</option>
+                          <option value="MD Cardiology">MD Cardiology</option>
+                          <option value="MD Pediatrics">MD Pediatrics</option>
+                          <option value="MRCS Part A">MRCS Part A</option>
+                          <option value="MRCP Part 1">MRCP Part 1</option>
+                          <option value="MBBS Final Professional Exam">MBBS Final Professional Exam</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Group Icon Emoji</label>
+                    <select
+                      value={newGroupEmoji}
+                      onChange={e => setNewGroupEmoji(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="🩺">🩺 Stethoscope</option>
+                      <option value="🔪">🔪 Surgery</option>
+                      <option value="👶">👶 Gynae / Pediatrics</option>
+                      <option value="🧠">🧠 Neurology / Anatomy</option>
+                      <option value="🫀">🫀 Cardiology</option>
+                      <option value="🩸">🩸 Hematology / Pathology</option>
+                      <option value="💊">💊 Pharmacology / Medicine</option>
+                      <option value="🎓">🎓 Final Prof MBBS</option>
+                      <option value="🇬🇧">🇬🇧 MRCS / International</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Faculty Supervisor / Group Admin</label>
+                    <input
+                      type="text"
+                      value={newGroupSupervisor}
+                      onChange={e => setNewGroupSupervisor(e.target.value)}
+                      placeholder="Dr. M. H. Moni"
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500 font-bold text-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Description</label>
+                    <input
+                      type="text"
+                      value={newGroupDesc}
+                      onChange={e => setNewGroupDesc(e.target.value)}
+                      placeholder="High-yield recall questions and case discussion for candidates."
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Candidate Selection for New Group */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span>Initial Candidate Members to Add to Group:</span>
+                    <span className="text-[11px] text-emerald-500 font-mono font-normal">
+                      {selectedCandidateIdsForNewGroup.length} candidates selected
+                    </span>
+                  </label>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    {candidateDirectory.map(c => {
+                      const isSelected = selectedCandidateIdsForNewGroup.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className={`flex items-center gap-2 p-2 rounded-xl text-xs cursor-pointer border transition ${
+                            isSelected
+                              ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 text-emerald-950 dark:text-emerald-200 font-bold'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCandidateIdsForNewGroup(prev => [...prev, c.id]);
+                              } else {
+                                setSelectedCandidateIdsForNewGroup(prev => prev.filter(id => id !== c.id));
+                              }
+                            }}
+                            className="rounded text-emerald-600 focus:ring-emerald-500 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-[11px] leading-tight font-bold">{c.name}</p>
+                            <p className="truncate text-[9px] text-slate-400 font-mono">BMDC: {c.bmdcRegNo || 'A-108294'}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2"
+                >
+                  <PlusCircle size={16} />
+                  <span>Create Study Group & Assign Candidates</span>
+                </button>
+              </form>
+            </div>
+
+            {/* EXISTING STUDY GROUPS ROSTER & CANDIDATE MANAGEMENT */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Users size={18} className="text-purple-500" />
+                    <span>Active Study Groups & Candidate Roster ({studyGroups.length})</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Admin is the supervisor and can add or remove any candidate from these groups</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {studyGroups.map(grp => {
+                  const currentMemberIds = grp.memberCandidateIds || [];
+                  // Candidates in group
+                  const groupCandidates = candidateDirectory.filter(c => currentMemberIds.includes(c.id));
+                  // Candidates not in group
+                  const nonGroupCandidates = candidateDirectory.filter(c => !currentMemberIds.includes(c.id));
+
+                  return (
+                    <div
+                      key={grp.id}
+                      className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-4 shadow-xs"
+                    >
+                      {/* Group Summary Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl p-2 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+                            {grp.iconEmoji}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">{grp.name}</h4>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                {grp.specialtyTag}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                                <Crown size={11} className="text-amber-500" />
+                                Admin Supervisor: {grp.facultySupervisor || adminProfile?.name}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">{grp.description}</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              Group ID: {grp.id} • Active Candidates: <strong className="text-emerald-500">{grp.memberCount} members</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Admin Action: Delete Study Group */}
+                        <div className="shrink-0 flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete study group "${grp.name}"?`)) {
+                                deleteStudyGroup(grp.id);
+                                setStudyGroupMsg(`Study Group "${grp.name}" deleted successfully.`);
+                                setTimeout(() => setStudyGroupMsg(''), 4000);
+                              }
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 hover:bg-rose-200 border border-rose-300 dark:border-rose-800 text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                            title="Delete Study Group"
+                          >
+                            <Trash2 size={14} />
+                            <span>Delete Group</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Candidate Management Section for this Group */}
+                      <div className="space-y-3 pt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Users size={14} className="text-emerald-500" />
+                            <span>Candidate Members Roster ({groupCandidates.length} enrolled)</span>
+                          </span>
+
+                          {/* Add Candidate Controls */}
+                          {nonGroupCandidates.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={selectedGroupForCandAdd === grp.id ? candToAddId : ''}
+                                onChange={e => {
+                                  setSelectedGroupForCandAdd(grp.id);
+                                  setCandToAddId(e.target.value);
+                                }}
+                                className="bg-white dark:bg-slate-800 text-xs rounded-xl px-3 py-1.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-emerald-500 max-w-[200px]"
+                              >
+                                <option value="">Select Candidate to Add...</option>
+                                {nonGroupCandidates.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name} ({c.bmdcRegNo || c.specialty})
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                onClick={() => {
+                                  if (selectedGroupForCandAdd === grp.id && candToAddId) {
+                                    addCandidateToGroup(grp.id, candToAddId);
+                                    const targetCand = candidateDirectory.find(c => c.id === candToAddId);
+                                    setStudyGroupMsg(`Added candidate "${targetCand?.name || 'Doctor'}" to ${grp.name}!`);
+                                    setTimeout(() => setStudyGroupMsg(''), 4000);
+                                    setCandToAddId('');
+                                  }
+                                }}
+                                disabled={selectedGroupForCandAdd !== grp.id || !candToAddId}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                              >
+                                <UserPlus size={13} />
+                                <span>Add Candidate</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Group Candidate Roster Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                          {groupCandidates.length === 0 ? (
+                            <div className="col-span-full p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/40 text-center text-xs text-slate-400">
+                              No candidates enrolled in this group yet. Use the dropdown above to add candidates.
+                            </div>
+                          ) : (
+                            groupCandidates.map(c => (
+                              <div
+                                key={c.id}
+                                className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2 shadow-xs"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <img
+                                    src={c.avatarUrl}
+                                    alt={c.name}
+                                    className="w-8 h-8 rounded-full object-cover ring-2 ring-emerald-500/50 shrink-0"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{c.name}</p>
+                                    <p className="text-[10px] text-emerald-500 font-mono truncate">BMDC: {c.bmdcRegNo || 'A-108294'}</p>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => {
+                                    removeCandidateFromGroup(grp.id, c.id);
+                                    setStudyGroupMsg(`Removed candidate "${c.name}" from group "${grp.name}".`);
+                                    setTimeout(() => setStudyGroupMsg(''), 4000);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200 dark:border-rose-800 transition shrink-0"
+                                  title={`Remove ${c.name} from this group`}
+                                >
+                                  <UserMinus size={14} />
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
         {activeCabinetTab === 'users' && (
           <div className="space-y-6">
             
@@ -1750,8 +2744,14 @@ export const AdminDashboardView: React.FC = () => {
                         <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                           {(u?.name || 'DR').substring(0, 2).toUpperCase()}
                         </div>
-                        <div className="space-y-0.5">
-                          <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">{u.name}</h4>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">{u.name}</h4>
+                            <span className="px-2 py-0.5 rounded-md font-mono font-extrabold text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
+                              <User size={11} className="text-emerald-600 dark:text-emerald-400" />
+                              CANDIDATE ID: {(u as any).candidateId || `CAND-${u.bmdcRegNo.replace(/[^0-9]/g, '') || u.id}`}
+                            </span>
+                          </div>
                           <p className="text-[11px] text-slate-500">
                             BMDC: <strong className="text-purple-600 dark:text-purple-400">{u.bmdcRegNo}</strong> • {u.specialty}
                           </p>
@@ -1850,6 +2850,45 @@ export const AdminDashboardView: React.FC = () => {
         {activeCabinetTab === 'admin_accounts' && (
           <div className="space-y-6">
             
+            {/* PRIMARY ADMIN PROFILE CARD */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <img
+                      src={adminProfile?.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80'}
+                      alt={adminProfile?.name}
+                      className="w-16 h-16 rounded-full object-cover ring-4 ring-amber-500/60 shadow-md"
+                    />
+                    <span className="absolute -bottom-1 -right-1 p-1 bg-amber-500 text-slate-950 rounded-full border-2 border-slate-900 shadow">
+                      <ShieldCheck size={12} />
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-extrabold text-white">{adminProfile?.name || 'Dr. M. H. Moni'}</h3>
+                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black bg-amber-500 text-slate-950 uppercase tracking-wide">
+                        {adminProfile?.role || 'Superuser'}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-amber-300 mt-0.5">{adminProfile?.designation || 'Controller of Examinations'}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap font-mono">
+                      <span>📞 {adminProfile?.phone || '+8801700000000'}</span>
+                      <span>✉️ {adminProfile?.email || adminEmail}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsAdminEditModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold shadow transition flex items-center justify-center gap-2 shrink-0"
+                >
+                  <Edit3 size={15} />
+                  <span>Edit Name, Phone & Picture</span>
+                </button>
+              </div>
+            </div>
+
             {/* SUPERUSER CREDENTIALS & PASSWORD UPDATE */}
             <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -1976,14 +3015,27 @@ export const AdminDashboardView: React.FC = () => {
 
               {/* LIST OF ADMIN ACCOUNTS */}
               <div className="space-y-2 pt-2">
-                <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Active Faculty Administrators</h4>
+                <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Faculty Administrators Roster</h4>
                 {subAdminsList.map(adm => (
-                  <div key={adm.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{adm.email}</p>
-                      <p className="text-[10px] text-slate-500">{adm.role}</p>
+                  <div key={adm.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/90 border border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 rounded-xl font-mono font-extrabold text-[11px] bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 shadow-2xs">
+                        <ShieldCheck size={13} className="text-amber-600 dark:text-amber-400" />
+                        <span>{(adm as any).adminId || (adm.role.includes('Superuser') ? 'ADM-SUPER-001' : `ADM-${adm.id.replace(/[^0-9]/g, '') || '701'}`)}</span>
+                      </span>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{adm.email}</span>
+                          {adm.role.includes('Superuser') && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                              PRIMARY SUPERUSER
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-medium">{adm.role}</p>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                       {adm.status}
                     </span>
                   </div>
@@ -1994,7 +3046,551 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         )}
 
+        {/* =========================================================================
+            TAB 9: EXAM SPECIALTIES CONTROL CABINET (ADD / DELETE / LOCK SPECIALTIES)
+            ========================================================================= */}
+        {activeCabinetTab === 'specialties' && (
+          <div className="space-y-6 animate-fadeIn">
+            
+            {/* Header & Description */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                    <Layers size={22} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      Exam Specialties Control Cabinet
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Add new exam specialties or delete existing ones. Changes sync live with the main Candidate Portal Dashboard.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shadow-2xs">
+                  {examSpecialties.length} Active Specialties
+                </span>
+              </div>
+            </div>
+
+            {specialtySuccessMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  <span>{specialtySuccessMsg}</span>
+                </div>
+                <button onClick={() => setSpecialtySuccessMsg('')} className="hover:opacity-75">
+                  <XCircle size={15} />
+                </button>
+              </div>
+            )}
+
+            {/* ADD NEW SPECIALTY FORM */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <PlusCircle size={16} className="text-blue-600" />
+                <span>Add New Exam Specialty</span>
+              </h4>
+
+              <form onSubmit={handleAddSpecialtySubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Specialty Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newSpecName}
+                      onChange={e => setNewSpecName(e.target.value)}
+                      placeholder="e.g., FCPS P-1 (Ophthalmology) or Diploma (Cardiology)"
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      MCQ Question Count
+                    </label>
+                    <input
+                      type="number"
+                      value={newSpecMcqCount}
+                      onChange={e => setNewSpecMcqCount(e.target.value ? Number(e.target.value) : '')}
+                      placeholder="1500"
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Chapter Count
+                    </label>
+                    <input
+                      type="number"
+                      value={newSpecChapterCount}
+                      onChange={e => setNewSpecChapterCount(e.target.value ? Number(e.target.value) : '')}
+                      placeholder="12"
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Icon Theme
+                    </label>
+                    <select
+                      value={newSpecIconType}
+                      onChange={e => setNewSpecIconType(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700"
+                    >
+                      <option value="stethoscope">Stethoscope 🩺 (Surgery / Clinical)</option>
+                      <option value="capsule">Capsule 💊 (Medicine / Pharma)</option>
+                      <option value="microscope">Microscope 🔬 (Basic Sciences)</option>
+                      <option value="globe">Globe 🌐 (International MRCP/MRCS)</option>
+                      <option value="tools">Surgical Tools 🛠️ (MRCS / Operative)</option>
+                      <option value="gradcap">Grad Cap 🎓 (Diploma / Degree)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Access Restriction
+                    </label>
+                    <select
+                      value={newSpecIsLocked ? 'locked' : 'unlocked'}
+                      onChange={e => setNewSpecIsLocked(e.target.value === 'locked')}
+                      className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700"
+                    >
+                      <option value="unlocked">Unlocked (Open Practice)</option>
+                      <option value="locked">Locked (Requires Subscription)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2 flex items-end">
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                    >
+                      <PlusCircle size={16} />
+                      <span>Add Exam Specialty</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* LIST OF CURRENT EXAM SPECIALTIES WITH EDIT / DELETE / TOGGLE LOCK BUTTONS */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    Active Exam Specialties Roster ({examSpecialties.length})
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Edit MCQ counts, chapter count, icon theme, access restriction, or delete specialties
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {examSpecialties.map(spec => {
+                  const isEditingThis = editingSpecialtyId === spec.id;
+                  if (isEditingThis) {
+                    return (
+                      <form
+                        key={spec.id}
+                        onSubmit={(e) => handleSaveEditSpecialty(e, spec.id)}
+                        className="col-span-1 md:col-span-2 p-5 rounded-2xl border-2 border-blue-500 bg-blue-50/50 dark:bg-slate-800/90 shadow-md space-y-4 transition"
+                      >
+                        <div className="flex items-center justify-between border-b border-blue-200 dark:border-slate-700 pb-3">
+                          <div className="flex items-center gap-2">
+                            <Edit3 size={16} className="text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                              Editing Exam Specialty: <span className="text-blue-600 dark:text-blue-400">{spec.name}</span>
+                            </h5>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSpecialtyId(null)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700 transition"
+                            title="Cancel editing"
+                          >
+                            <XCircle size={18} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                          <div className="sm:col-span-2 md:col-span-1">
+                            <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                              Specialty Title / Name
+                            </label>
+                            <input
+                              type="text"
+                              value={editSpecialtyForm.name}
+                              onChange={e => setEditSpecialtyForm(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full bg-white dark:bg-slate-900 text-xs font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                              MCQ Question Count
+                            </label>
+                            <input
+                              type="number"
+                              value={editSpecialtyForm.mcqCount}
+                              onChange={e => setEditSpecialtyForm(prev => ({ ...prev, mcqCount: e.target.value ? Number(e.target.value) : '' }))}
+                              placeholder="e.g. 1500"
+                              className="w-full bg-white dark:bg-slate-900 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                              Chapter Count
+                            </label>
+                            <input
+                              type="number"
+                              value={editSpecialtyForm.chapterCount}
+                              onChange={e => setEditSpecialtyForm(prev => ({ ...prev, chapterCount: e.target.value ? Number(e.target.value) : '' }))}
+                              placeholder="e.g. 12"
+                              className="w-full bg-white dark:bg-slate-900 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                              Icon Theme
+                            </label>
+                            <select
+                              value={editSpecialtyForm.iconType}
+                              onChange={e => setEditSpecialtyForm(prev => ({ ...prev, iconType: e.target.value }))}
+                              className="w-full bg-white dark:bg-slate-900 text-xs font-bold rounded-xl px-3 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="stethoscope">Stethoscope 🩺 (Surgery / Clinical)</option>
+                              <option value="capsule">Capsule 💊 (Medicine / Pharma)</option>
+                              <option value="microscope">Microscope 🔬 (Basic Sciences)</option>
+                              <option value="globe">Globe 🌐 (International MRCP/MRCS)</option>
+                              <option value="tools">Surgical Tools 🛠️ (MRCS / Operative)</option>
+                              <option value="gradcap">Grad Cap 🎓 (Diploma / Degree)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                              Access Restriction
+                            </label>
+                            <select
+                              value={editSpecialtyForm.isLocked ? 'locked' : 'unlocked'}
+                              onChange={e => setEditSpecialtyForm(prev => ({ ...prev, isLocked: e.target.value === 'locked' }))}
+                              className="w-full bg-white dark:bg-slate-900 text-xs font-bold rounded-xl px-3 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="unlocked">Unlocked (Open Practice)</option>
+                              <option value="locked">Locked (Requires Subscription)</option>
+                            </select>
+                          </div>
+
+                          <div className="sm:col-span-2 md:col-span-1 flex items-end gap-2">
+                            <button
+                              type="submit"
+                              className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-1.5"
+                            >
+                              <Check size={14} />
+                              <span>Save Changes</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingSpecialtyId(null)}
+                              className="py-2.5 px-3.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-extrabold text-xs transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={spec.id}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3 text-xs shadow-2xs hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-lg shrink-0 shadow-2xs">
+                          {spec.iconType === 'stethoscope' && '🩺'}
+                          {spec.iconType === 'capsule' && '💊'}
+                          {spec.iconType === 'microscope' && '🔬'}
+                          {spec.iconType === 'globe' && '🌐'}
+                          {spec.iconType === 'tools' && '🛠️'}
+                          {spec.iconType === 'gradcap' && '🎓'}
+                          {!['stethoscope', 'capsule', 'microscope', 'globe', 'tools', 'gradcap'].includes(spec.iconType) && '🎓'}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 dark:text-white truncate">
+                            {spec.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            {spec.mcqCount.toLocaleString()} MCQs • {spec.chapterCount} Chapters
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleStartEditSpecialty(spec)}
+                          className="p-2 rounded-xl text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-100/60 dark:hover:bg-blue-950/60 transition border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+                          title="Edit Specialty details (MCQ count, chapter count, icon theme, lock status)"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => toggleExamSpecialtyLock(spec.id)}
+                          className={`px-2.5 py-1.5 rounded-xl font-extrabold text-[11px] flex items-center gap-1 transition ${
+                            spec.isLocked
+                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-200'
+                              : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200'
+                          }`}
+                          title="Click to toggle lock status"
+                        >
+                          {spec.isLocked ? (
+                            <>
+                              <Lock size={12} />
+                              <span>Locked</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock size={12} />
+                              <span>Unlocked</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete "${spec.name}"?`)) {
+                              deleteExamSpecialty(spec.id);
+                            }
+                          }}
+                          className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-800"
+                          title="Delete Specialty"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
       </main>
+
+      {/* EDIT ADMIN ACCOUNT PROFILE MODAL */}
+      {isAdminEditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 my-8">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  <User size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Edit Admin Account Details
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Update profile picture, name, phone number & designation
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAdminEditModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveAdminProfileSubmit} className="space-y-5">
+              
+              {/* Profile Avatar Selection */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Admin Profile Picture / Avatar
+                </label>
+                
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <img
+                    src={adminEditForm.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80'}
+                    alt="Preview"
+                    className="w-16 h-16 rounded-full object-cover ring-2 ring-amber-400 shadow-sm shrink-0"
+                  />
+                  <div className="space-y-2 text-xs flex-1">
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor="admin-avatar-file-upload"
+                        className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] cursor-pointer shadow-xs transition inline-flex items-center gap-1.5"
+                      >
+                        <UserPlus size={13} />
+                        <span>Upload Photo</span>
+                      </label>
+                      <input
+                        id="admin-avatar-file-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAdminAvatarFileUpload}
+                        className="hidden"
+                      />
+                      <span className="text-[10px] text-slate-400 font-medium">PNG, JPG, WebP</span>
+                    </div>
+
+                    <input
+                      type="url"
+                      value={adminEditForm.avatarUrl}
+                      onChange={e => setAdminEditForm(prev => ({ ...prev, avatarUrl: e.target.value }))}
+                      placeholder="Or paste image URL (https://...)"
+                      className="w-full bg-white dark:bg-slate-900 text-[11px] rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Avatars */}
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Or choose a preset avatar:</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {PRESET_AVATARS.map((av, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setAdminEditForm(prev => ({ ...prev, avatarUrl: av.url }))}
+                        className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 transition ${
+                          adminEditForm.avatarUrl === av.url
+                            ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                        }`}
+                      >
+                        <img src={av.url} alt={av.label} className="w-10 h-10 rounded-full object-cover" />
+                        <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate w-full text-center">
+                          {av.label.split(' ')[0]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Input: Full Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Admin Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={adminEditForm.name}
+                  onChange={e => setAdminEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Dr. M. H. Moni"
+                  className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              {/* Input: Phone Number */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Contact Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={adminEditForm.phone}
+                  onChange={e => setAdminEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+8801700000000"
+                  className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              {/* Input: Email Address */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Admin Email Address <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={adminEditForm.email}
+                  onChange={e => setAdminEditForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="mhmoni005@gmail.com"
+                  className="w-full bg-slate-50 dark:bg-slate-800 text-xs font-mono rounded-xl px-4 py-3 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              {/* Input: Designation & Department Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Faculty Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={adminEditForm.designation}
+                    onChange={e => setAdminEditForm(prev => ({ ...prev, designation: e.target.value }))}
+                    placeholder="Controller of Examinations"
+                    className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Academic Department
+                  </label>
+                  <input
+                    type="text"
+                    value={adminEditForm.department}
+                    onChange={e => setAdminEditForm(prev => ({ ...prev, department: e.target.value }))}
+                    placeholder="Medical Education & Standards"
+                    className="w-full bg-slate-50 dark:bg-slate-800 text-xs rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+              </div>
+
+              {/* Submit / Cancel Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminEditModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md transition flex items-center gap-1.5"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Save Profile Changes</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

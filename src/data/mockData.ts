@@ -1,15 +1,45 @@
 import {
+  AdminProfile,
   CandidateProfile,
   Question,
   SubscriptionTier,
   StudyGroup,
   ChatMessage,
   ForumPost,
-  ExamAttempt
+  ExamAttempt,
+  ExamSpecialtyItem
 } from '../types';
+
+export const initialExamSpecialties: ExamSpecialtyItem[] = [
+  { id: 'spec_1', name: 'MS Residency (surgery faculty)', mcqCount: 1500, chapterCount: 12, iconType: 'stethoscope', isLocked: false },
+  { id: 'spec_2', name: 'MD Residency (medicine faculty)', mcqCount: 2100, chapterCount: 15, iconType: 'capsule', isLocked: true },
+  { id: 'spec_3', name: 'MD Residency (Basic & paraclinical Faculty)', mcqCount: 980, chapterCount: 10, iconType: 'microscope', isLocked: true },
+  { id: 'spec_4', name: 'FCPS P-1(medicine faculty)', mcqCount: 2100, chapterCount: 15, iconType: 'capsule', isLocked: true },
+  { id: 'spec_5', name: 'FCPS P-1(surgery faculty)', mcqCount: 1500, chapterCount: 12, iconType: 'stethoscope', isLocked: true },
+  { id: 'spec_6', name: 'FCPS P-1(Basic & paraclinical Faculty)', mcqCount: 980, chapterCount: 10, iconType: 'microscope', isLocked: true },
+  { id: 'spec_7', name: 'Diploma(medicine faculty)', mcqCount: 2100, chapterCount: 15, iconType: 'capsule', isLocked: true },
+  { id: 'spec_8', name: 'Diploma((surgery faculty)', mcqCount: 1500, chapterCount: 12, iconType: 'stethoscope', isLocked: true },
+  { id: 'spec_9', name: 'DiplomaBasic & paraclinical Faculty', mcqCount: 980, chapterCount: 10, iconType: 'microscope', isLocked: true },
+  { id: 'spec_10', name: 'MRCP', mcqCount: 1200, chapterCount: 8, iconType: 'globe', isLocked: true },
+  { id: 'spec_11', name: 'MRCS', mcqCount: 1200, chapterCount: 8, iconType: 'tools', isLocked: true },
+  { id: 'spec_12', name: 'FCPS P-1 (Gynae & Obs)', mcqCount: 1200, chapterCount: 8, iconType: 'gradcap', isLocked: true },
+  { id: 'spec_13', name: 'Diploma (Dentistry)', mcqCount: 1200, chapterCount: 8, iconType: 'gradcap', isLocked: true }
+];
+
+export const initialAdminProfile: AdminProfile = {
+  adminId: 'ADM-SUPER-001',
+  name: 'Dr. M. H. Moni',
+  email: 'mhmoni005@gmail.com',
+  phone: '+8801700000000',
+  avatarUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
+  role: 'Primary Superuser',
+  designation: 'Senior Faculty & Controller of Examinations',
+  department: 'Medical Education & Academic Standards'
+};
 
 export const initialCandidateProfile: CandidateProfile = {
   id: 'cand_101',
+  candidateId: 'CAND-108294',
   name: 'Dr. Tanvir Hossain',
   email: 'tanvir.hossain@dmc.edu.bd',
   phone: '+8801712345678',

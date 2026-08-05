@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
+  AdminProfile,
   CandidateProfile,
   Question,
   SubscriptionTier,
@@ -7,10 +8,13 @@ import {
   StudyGroup,
   ChatMessage,
   ForumPost,
-  ExamAttempt
+  ExamAttempt,
+  ExamSpecialtyItem
 } from '../types';
 import {
+  initialAdminProfile,
   initialCandidateProfile,
+  initialExamSpecialties,
   subscriptionTiers as defaultTiers,
   mockQuestions as defaultQuestions,
   studyGroups as defaultGroups,
@@ -27,6 +31,9 @@ interface AppContextType {
   updateCandidate: (updated: Partial<CandidateProfile>) => void;
   updateProfile: (updated: Partial<CandidateProfile>) => void;
   
+  adminProfile: AdminProfile;
+  updateAdminProfile: (updated: Partial<AdminProfile>) => void;
+  
   questions: Question[];
   addRecallQuestion: (newQ: Omit<Question, 'id' | 'status'>) => void;
   approveRecallQuestion: (id: string) => void;
@@ -36,6 +43,14 @@ interface AppContextType {
   joinedGroupIds: string[];
   joinGroup: (groupId: string) => { success: boolean; message?: string };
   leaveGroup: (groupId: string) => void;
+  createStudyGroup: (group: Omit<StudyGroup, 'id' | 'memberCount' | 'activeNowCount'>) => void;
+  deleteStudyGroup: (groupId: string) => void;
+  addCandidateToGroup: (groupId: string, candidateId: string) => void;
+  removeCandidateFromGroup: (groupId: string, candidateId: string) => void;
+
+  candidateDirectory: CandidateProfile[];
+  addCandidateToDirectory: (candidate: Omit<CandidateProfile, 'id' | 'createdAt'>) => void;
+  removeCandidateFromDirectory: (candidateId: string) => void;
 
   chatMessages: Record<string, ChatMessage[]>;
   sendChatMessage: (groupId: string, messageData: { text?: string; imageUrl?: string; embeddedQuestion?: Question }) => void;
@@ -47,11 +62,27 @@ interface AppContextType {
 
   subscriptionTiers: SubscriptionTier[];
   transactions: PaymentTransaction[];
-  submitPaymentTransaction: (tierId: string, gateway: any, accountNumber: string, trxId: string) => Promise<{ success: boolean; message: string }>;
+  submitPaymentTransaction: (
+    tierId: string,
+    gateway: any,
+    accountNumber: string,
+    trxId: string,
+    customDetails?: {
+      tierName?: string;
+      amountBDT?: number;
+      durationMonths?: number;
+    }
+  ) => Promise<{ success: boolean; message: string }>;
   approveTransaction: (trxId: string) => void;
 
   examHistory: ExamAttempt[];
   recordExamAttempt: (attempt: Omit<ExamAttempt, 'id' | 'completedAt'>) => void;
+
+  examSpecialties: ExamSpecialtyItem[];
+  addExamSpecialty: (specialty: Omit<ExamSpecialtyItem, 'id'>) => void;
+  updateExamSpecialty: (id: string, updated: Partial<ExamSpecialtyItem>) => void;
+  deleteExamSpecialty: (id: string) => void;
+  toggleExamSpecialtyLock: (id: string) => void;
 
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -128,6 +159,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginCandidate = (identifier: string) => {
     setIsCandidateLoggedIn(true);
     localStorage.setItem('medexam_candidate_logged_in', 'true');
+    // Clear admin session when logging in as candidate
+    setIsAdminLoggedIn(false);
+    localStorage.removeItem('medexam_admin');
+    if (activeTab === 'admin') {
+      setActiveTab('dashboard');
+    }
     // Also if identifier provided, update profile email/phone if appropriate
     if (identifier.includes('@')) {
       updateCandidate({ email: identifier });
@@ -140,10 +177,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logoutCandidate = () => {
     setIsCandidateLoggedIn(false);
     localStorage.removeItem('medexam_candidate_logged_in');
+    if (activeTab === 'profile_settings' || activeTab === 'profile') {
+      setActiveTab('dashboard');
+    }
   };
 
-  // Admin Auth State & Mail ID
-  const adminEmail = 'mhmoni005@gmail.com';
+  // Admin Profile State & Auth
+  const [adminProfile, setAdminProfile] = useState<AdminProfile>(() => {
+    const saved = localStorage.getItem('medexam_admin_profile');
+    return saved ? JSON.parse(saved) : initialAdminProfile;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('medexam_admin_profile', JSON.stringify(adminProfile));
+  }, [adminProfile]);
+
+  const updateAdminProfile = (updated: Partial<AdminProfile>) => {
+    setAdminProfile(prev => ({ ...prev, ...updated }));
+  };
+
+  const adminEmail = adminProfile.email || 'mhmoni005@gmail.com';
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('medexam_admin') === 'true';
   });
@@ -164,6 +217,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ) {
       setIsAdminLoggedIn(true);
       localStorage.setItem('medexam_admin', 'true');
+      // Clear candidate session when logging in as admin
+      setIsCandidateLoggedIn(false);
+      localStorage.removeItem('medexam_candidate_logged_in');
       setActiveTab('admin');
       return true;
     }
@@ -232,6 +288,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } as Question;
 
     setQuestions(prev => [createdQ, ...prev]);
+
+    // Automatically update MCQ count for matching Exam Specialty
+    if (newQ.specialtyTag) {
+      const tagClean = newQ.specialtyTag.trim().toLowerCase();
+      setExamSpecialties(prev =>
+        prev.map(s => {
+          if (s.name.trim().toLowerCase() === tagClean || tagClean.includes(s.name.trim().toLowerCase())) {
+            return { ...s, mcqCount: s.mcqCount + 1 };
+          }
+          return s;
+        })
+      );
+    }
   };
 
   const approveRecallQuestion = (id: string) => {
@@ -246,8 +315,157 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // Candidate Directory State for Admin & Group Management
+  const [candidateDirectory, setCandidateDirectory] = useState<CandidateProfile[]>(() => {
+    const saved = localStorage.getItem('medexam_candidate_directory');
+    if (saved) return JSON.parse(saved);
+    return [
+      initialCandidateProfile,
+      {
+        id: 'cand_102',
+        candidateId: 'CAND-84920',
+        name: 'Dr. Tanvir Ahmed',
+        email: 'tanvir.med@gmail.com',
+        phone: '+8801722223333',
+        designation: 'HMO, Surgery',
+        collegeHospital: 'Dhaka Medical College',
+        specialty: 'FCPS Part I (Surgery)',
+        bmdcRegNo: 'A-84920',
+        avatarUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+        role: 'candidate',
+        createdAt: '2025-02-12',
+        hasActiveSubscription: true,
+        activeSubscriptionTier: 'FCPS Part 1 Surgery Pass'
+      },
+      {
+        id: 'cand_103',
+        candidateId: 'CAND-91023',
+        name: 'Dr. Nusrat Jahan',
+        email: 'dr.nusrat@yahoo.com',
+        phone: '+8801833334444',
+        designation: 'MO, Gynae',
+        collegeHospital: 'Chittagong Medical College',
+        specialty: 'FCPS Part I (Gynae & Obs)',
+        bmdcRegNo: 'A-91023',
+        avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80',
+        role: 'candidate',
+        createdAt: '2025-03-01',
+        hasActiveSubscription: false,
+        activeSubscriptionTier: 'Free Trial Pass'
+      },
+      {
+        id: 'cand_104',
+        candidateId: 'CAND-77201',
+        name: 'Dr. Mahmudul Hasan',
+        email: 'mahmud.med@gmail.com',
+        phone: '+8801911112222',
+        designation: 'Medical Officer',
+        collegeHospital: 'Shaheed Suhrawardy Medical College',
+        specialty: 'MS General Surgery',
+        bmdcRegNo: 'A-77201',
+        avatarUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
+        role: 'candidate',
+        createdAt: '2025-03-10',
+        hasActiveSubscription: true,
+        activeSubscriptionTier: 'MS / MD Residency Pass'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('medexam_candidate_directory', JSON.stringify(candidateDirectory));
+  }, [candidateDirectory]);
+
+  const addCandidateToDirectory = (newCand: Omit<CandidateProfile, 'id' | 'createdAt'>) => {
+    const created: CandidateProfile = {
+      ...newCand,
+      id: 'cand_' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setCandidateDirectory(prev => [created, ...prev]);
+  };
+
+  const removeCandidateFromDirectory = (candId: string) => {
+    setCandidateDirectory(prev => prev.filter(c => c.id !== candId));
+  };
+
   // Study Groups & Membership State
-  const [studyGroups] = useState<StudyGroup[]>(defaultGroups);
+  const [studyGroups, setStudyGroups] = useState<StudyGroup[]>(() => {
+    const saved = localStorage.getItem('medexam_study_groups');
+    return saved ? JSON.parse(saved) : defaultGroups;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('medexam_study_groups', JSON.stringify(studyGroups));
+  }, [studyGroups]);
+
+  const createStudyGroup = (groupData: Omit<StudyGroup, 'id' | 'memberCount' | 'activeNowCount'>) => {
+    const newGroupId = 'grp_' + Date.now();
+    const newGroup: StudyGroup = {
+      ...groupData,
+      id: newGroupId,
+      memberCount: groupData.memberCandidateIds ? groupData.memberCandidateIds.length : 1,
+      activeNowCount: 1,
+      facultySupervisor: groupData.facultySupervisor || adminProfile.name || 'Dr. M. H. Moni',
+      adminId: groupData.adminId || adminProfile.adminId || 'ADM-SUPER-001',
+      adminName: groupData.adminName || adminProfile.name || 'Dr. M. H. Moni',
+      recentActivity: groupData.recentActivity || 'Group created by Faculty Admin',
+      memberCandidateIds: groupData.memberCandidateIds || [candidate.id]
+    };
+
+    setStudyGroups(prev => [newGroup, ...prev]);
+    setJoinedGroupIds(prev => (prev.includes(newGroupId) ? prev : [...prev, newGroupId]));
+  };
+
+  const deleteStudyGroup = (groupId: string) => {
+    setStudyGroups(prev => prev.filter(g => g.id !== groupId));
+    setJoinedGroupIds(prev => prev.filter(id => id !== groupId));
+  };
+
+  const addCandidateToGroup = (groupId: string, candidateId: string) => {
+    setStudyGroups(prev =>
+      prev.map(g => {
+        if (g.id === groupId) {
+          const currentMembers = g.memberCandidateIds || [];
+          if (!currentMembers.includes(candidateId)) {
+            const updatedMembers = [...currentMembers, candidateId];
+            return {
+              ...g,
+              memberCandidateIds: updatedMembers,
+              memberCount: Math.max(g.memberCount + 1, updatedMembers.length)
+            };
+          }
+        }
+        return g;
+      })
+    );
+
+    if (candidateId === candidate.id && !joinedGroupIds.includes(groupId)) {
+      setJoinedGroupIds(prev => [...prev, groupId]);
+    }
+  };
+
+  const removeCandidateFromGroup = (groupId: string, candidateId: string) => {
+    setStudyGroups(prev =>
+      prev.map(g => {
+        if (g.id === groupId) {
+          const currentMembers = g.memberCandidateIds || [];
+          const updatedMembers = currentMembers.filter(id => id !== candidateId);
+          return {
+            ...g,
+            memberCandidateIds: updatedMembers,
+            memberCount: Math.max(0, g.memberCount - 1)
+          };
+        }
+        return g;
+      })
+    );
+
+    if (candidateId === candidate.id) {
+      setJoinedGroupIds(prev => prev.filter(id => id !== groupId));
+    }
+  };
+
   const [joinedGroupIds, setJoinedGroupIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('medexam_joined_groups');
     return saved ? JSON.parse(saved) : ['grp_surgery', 'grp_ms_surgery'];
@@ -402,14 +620,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         candidateId: candidate.id,
         candidateName: candidate.name,
         candidatePhone: candidate.phone,
-        tierId: 'tier_ms_residency',
-        tierName: 'MS / MD Residency Entrance Pass',
+        tierId: 'tier_fcps_part1',
+        tierName: 'FCPS Part I Special Pack',
         gateway: 'bKash',
         accountNumber: '01712345678',
-        trxId: '8N29X7K9L',
-        amountBDT: 3000,
+        trxId: 'TXN-BK-991204',
+        amountBDT: 2500,
         status: 'active',
-        timestamp: '2025-01-10 10:00 AM'
+        timestamp: '2026-05-15 14:32:00'
+      },
+      {
+        id: 'trx_1002',
+        candidateId: candidate.id,
+        candidateName: candidate.name,
+        candidatePhone: candidate.phone,
+        tierId: 'tier_mrcp',
+        tierName: 'MRCP Part I Quick Prep',
+        gateway: 'Nagad',
+        accountNumber: '01812345678',
+        trxId: 'TXN-NG-770381',
+        amountBDT: 4000,
+        status: 'active',
+        timestamp: '2026-04-10 11:15:00'
       }
     ];
   });
@@ -422,22 +654,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tierId: string,
     gateway: any,
     accountNumber: string,
-    trxId: string
+    trxId: string,
+    customDetails?: {
+      tierName?: string;
+      amountBDT?: number;
+      durationMonths?: number;
+    }
   ): Promise<{ success: boolean; message: string }> => {
     const tier = subscriptionTiers.find(t => t.id === tierId);
-    if (!tier) return { success: false, message: 'Invalid subscription tier selected.' };
+
+    const resolvedTierName = customDetails?.tierName || tier?.name || 'Specialty License Pass';
+    const resolvedAmountBDT = customDetails?.amountBDT !== undefined ? customDetails.amountBDT : (tier?.priceBDT || 600);
+    const resolvedDuration = customDetails?.durationMonths !== undefined ? customDetails.durationMonths : (tier?.durationMonths || 1);
 
     const newTrx: PaymentTransaction = {
       id: 'trx_' + Date.now(),
       candidateId: candidate.id,
       candidateName: candidate.name,
       candidatePhone: candidate.phone,
-      tierId: tier.id,
-      tierName: tier.name,
+      tierId: tier?.id || tierId || 'tier_custom',
+      tierName: resolvedTierName,
       gateway,
       accountNumber,
       trxId: (trxId || '').trim().toUpperCase(),
-      amountBDT: tier.priceBDT,
+      amountBDT: resolvedAmountBDT,
       status: 'active', // Instant simulation activation
       timestamp: new Date().toLocaleString()
     };
@@ -446,17 +686,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Update candidate's subscription state immediately
     const expiry = new Date();
-    expiry.setMonth(expiry.getMonth() + tier.durationMonths);
+    expiry.setMonth(expiry.getMonth() + resolvedDuration);
 
     updateCandidate({
       hasActiveSubscription: true,
-      activeSubscriptionTier: tier.name,
+      activeSubscriptionTier: resolvedTierName,
       subscriptionExpiryDate: expiry.toISOString()
     });
 
     return {
       success: true,
-      message: `Transaction ${(trxId || '').toUpperCase()} verified! Your "${tier.name}" is now ACTIVE.`
+      message: `Transaction ${(trxId || '').toUpperCase()} verified! Your "${resolvedTierName}" is now ACTIVE.`
     };
   };
 
@@ -485,6 +725,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExamHistory(prev => [newAttempt, ...prev]);
   };
 
+  // Exam Specialties State
+  const [examSpecialties, setExamSpecialties] = useState<ExamSpecialtyItem[]>(() => {
+    const saved = localStorage.getItem('medexam_specialties');
+    return saved ? JSON.parse(saved) : initialExamSpecialties;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('medexam_specialties', JSON.stringify(examSpecialties));
+  }, [examSpecialties]);
+
+  const addExamSpecialty = (item: Omit<ExamSpecialtyItem, 'id'>) => {
+    const newSpecialty: ExamSpecialtyItem = {
+      ...item,
+      id: 'spec_' + Date.now()
+    };
+    setExamSpecialties(prev => [...prev, newSpecialty]);
+  };
+
+  const updateExamSpecialty = (id: string, updated: Partial<ExamSpecialtyItem>) => {
+    setExamSpecialties(prev =>
+      prev.map(s => (s.id === id ? { ...s, ...updated } : s))
+    );
+  };
+
+  const deleteExamSpecialty = (id: string) => {
+    setExamSpecialties(prev => prev.filter(s => s.id !== id));
+  };
+
+  const toggleExamSpecialtyLock = (id: string) => {
+    setExamSpecialties(prev =>
+      prev.map(s => (s.id === id ? { ...s, isLocked: !s.isLocked } : s))
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -494,6 +768,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         candidate,
         updateCandidate,
         updateProfile: updateCandidate,
+        adminProfile,
+        updateAdminProfile,
         questions,
         addRecallQuestion,
         approveRecallQuestion,
@@ -502,6 +778,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         joinedGroupIds,
         joinGroup,
         leaveGroup,
+        createStudyGroup,
+        deleteStudyGroup,
+        addCandidateToGroup,
+        removeCandidateFromGroup,
+        candidateDirectory,
+        addCandidateToDirectory,
+        removeCandidateFromDirectory,
         chatMessages,
         sendChatMessage,
         forumPosts,
@@ -514,6 +797,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveTransaction,
         examHistory,
         recordExamAttempt,
+        examSpecialties,
+        addExamSpecialty,
+        updateExamSpecialty,
+        deleteExamSpecialty,
+        toggleExamSpecialtyLock,
         activeTab,
         setActiveTab,
         searchQuery,

@@ -16,9 +16,17 @@ import { CandidateProfileView } from './components/CandidateProfileView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 
 const MainAppContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, isAdminLoggedIn } = useApp();
 
   const renderActiveView = () => {
+    // Role guard: Admin cannot view candidate profile; Candidate cannot view Admin Dashboard
+    if (isAdminLoggedIn && (activeTab === 'profile_settings' || activeTab === 'profile')) {
+      return <AdminDashboardView />;
+    }
+    if (!isAdminLoggedIn && activeTab === 'admin') {
+      return <DashboardView />;
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;

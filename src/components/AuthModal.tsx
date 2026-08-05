@@ -43,7 +43,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
   const [loginIdentifier, setLoginIdentifier] = useState(candidate.email || '+8801712345678');
   const [loginPassword, setLoginPassword] = useState('candidate123');
 
-  // Simplified Register state (Only Email/Phone & Password)
+  // Simplified Register state (Name, Email/Phone & Password)
+  const [regCandidateName, setRegCandidateName] = useState('');
   const [regIdentifier, setRegIdentifier] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -143,10 +144,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
 
     // Save initial credentials
     updateCandidate({
+      id: 'cand_' + Date.now(),
+      candidateId: 'CAND-' + Math.floor(100000 + Math.random() * 900000),
       email: isEmailInput ? cleanId : (candidate.email || 'doctor@medexam.bd'),
       phone: !isEmailInput ? cleanId : (candidate.phone || '+8801700000000'),
       password: regPassword,
-      name: candidate.name || 'Dr. Candidate'
+      name: regCandidateName.trim() || ''
     });
 
     // Automatically log candidate in
@@ -287,16 +290,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                 <button
                   type="button"
                   onClick={handleFillCandidateDemo}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-700/80 hover:bg-slate-700 text-slate-200 text-left truncate font-mono text-[10px] border border-slate-600 transition"
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 text-left truncate font-mono text-[10px] border border-emerald-700/60 transition flex items-center justify-between gap-1"
                 >
-                  Candidate Demo
+                  <span className="font-bold">Candidate</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-900 text-emerald-200">CAND-108294</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleFillAdminDemo}
-                  className="px-2.5 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-300 text-left truncate font-mono text-[10px] border border-amber-700/60 transition"
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-300 text-left truncate font-mono text-[10px] border border-amber-700/60 transition flex items-center justify-between gap-1"
                 >
-                  Admin ({adminEmail})
+                  <span className="font-bold">Admin</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-amber-900 text-amber-200">ADM-SUPER-001</span>
                 </button>
               </div>
             </div>
@@ -315,7 +320,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
         {tabMode === 'register' && (
           <form onSubmit={handleRegisterNextToOtp} className="space-y-4">
             <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-800/50 text-[11px] text-emerald-300 leading-relaxed">
-              ⚡ Quick Registration: Enter Phone or Email & Password. An OTP verification code will be sent to confirm your account.
+              ⚡ Quick Registration: Enter your Candidate Name, Phone or Email, & Password.
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Full Candidate Name
+              </label>
+              <div className="relative">
+                <User size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={regCandidateName}
+                  onChange={e => setRegCandidateName(e.target.value)}
+                  placeholder="e.g. Dr. Tanvir Hossain"
+                  className="w-full bg-slate-800 text-slate-100 text-xs rounded-xl pl-10 pr-4 py-3 border border-slate-700 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
             </div>
 
             <div>

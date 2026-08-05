@@ -9,9 +9,11 @@ import {
   Users,
   CreditCard,
   ShieldAlert,
+  ShieldCheck,
   UserCheck,
   Award,
-  BookMarked
+  BookMarked,
+  LogOut
 } from 'lucide-react';
 
 interface SidebarNavigationProps {
@@ -28,15 +30,18 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
     setActiveTab,
     candidate,
     isAdminLoggedIn,
+    adminProfile,
+    isCandidateLoggedIn,
+    logoutCandidate,
+    logoutAdmin,
     mobileMenuOpen: contextMobileOpen,
-    setMobileMenuOpen: contextSetMobileOpen,
-    openAuthModal
+    setMobileMenuOpen: contextSetMobileOpen
   } = useApp();
 
   const isMobileOpen = customMobileMenuOpen !== undefined ? customMobileMenuOpen : contextMobileOpen;
   const setMobileOpen = customSetMobileMenuOpen || contextSetMobileOpen;
 
-  const navItems = [
+  const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'qbank', label: 'Subject Question Bank', icon: BookOpen, badge: '8,500+ SBAs' },
     { id: 'mock_exam', label: 'Mock Exam Simulator', icon: Clock, badge: 'BCPS/BSMMU' },
@@ -44,9 +49,18 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
     { id: 'chat_groups', label: 'Specialty Study Groups', icon: MessageSquare, badge: 'Chat' },
     { id: 'forum', label: 'Discussion Forum', icon: Users },
     { id: 'subscriptions', label: 'Subscription & Gateway', icon: CreditCard, highlight: true },
-    { id: 'profile_settings', label: 'Candidate Profile & BMDC', icon: UserCheck },
-    { id: 'admin', label: 'Admin Dashboard', icon: ShieldAlert, badge: isAdminLoggedIn ? 'Active' : 'Faculty Admin' }
+    { id: 'profile_settings', label: 'Candidate Profile & BMDC', icon: UserCheck, candidateOnly: true },
+    { id: 'admin', label: 'Admin Dashboard', icon: ShieldAlert, badge: 'Active Cabinet', adminOnly: true }
   ];
+
+  // Strictly filter items based on role:
+  // Admin sees Admin Dashboard, NO Candidate Profile.
+  // Candidate sees Candidate Profile, NO Admin Dashboard.
+  const navItems = allNavItems.filter(item => {
+    if (item.adminOnly && !isAdminLoggedIn) return false;
+    if (item.candidateOnly && isAdminLoggedIn) return false;
+    return true;
+  });
 
   const handleSelectTab = (id: string) => {
     setActiveTab(id);
@@ -71,19 +85,39 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Candidate Target Box */}
+        {/* Top Role Status Box */}
         <div className="space-y-4">
-          <div className="p-3.5 rounded-2xl bg-slate-800/80 dark:bg-slate-900/90 border border-slate-700/60 shadow-inner">
-            <div className="flex items-center gap-2 mb-1">
-              <Award size={16} className="text-emerald-400" />
-              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Candidate Specialty</span>
+          {isAdminLoggedIn ? (
+            <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-800/60 shadow-inner">
+              <div className="flex items-center gap-2 mb-2">
+                <img
+                  src={adminProfile.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80'}
+                  alt={adminProfile.name}
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
+                />
+                <div className="overflow-hidden">
+                  <p className="text-xs font-bold text-white truncate">{adminProfile.name}</p>
+                  <p className="text-[10px] text-amber-300 font-mono font-semibold truncate">{adminProfile.phone || 'ADM-SUPER-001'}</p>
+                </div>
+              </div>
+              <div className="text-[10px] text-amber-300/80 flex items-center justify-between pt-1.5 border-t border-amber-800/50">
+                <span className="truncate">{adminProfile.role || 'Superuser'}</span>
+                <span className="text-emerald-400 font-medium shrink-0">Active</span>
+              </div>
             </div>
-            <p className="text-xs font-semibold text-white truncate">{candidate.specialty}</p>
-            <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between pt-1.5 border-t border-slate-700/50">
-              <span>BMDC: {candidate.bmdcRegNo}</span>
-              <span className="text-emerald-400 font-medium">Verified</span>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-slate-800/80 dark:bg-slate-900/90 border border-slate-700/60 shadow-inner">
+              <div className="flex items-center gap-2 mb-1">
+                <Award size={16} className="text-emerald-400" />
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Candidate Specialty</span>
+              </div>
+              <p className="text-xs font-semibold text-white truncate">{candidate.specialty}</p>
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between pt-1.5 border-t border-slate-700/50">
+                <span>BMDC: {candidate.bmdcRegNo}</span>
+                <span className="text-emerald-400 font-medium">Verified</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Navigation Links */}
           <nav className="space-y-1">
@@ -122,6 +156,28 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
                 </button>
               );
             })}
+
+            {/* Logout Button */}
+            <button
+              onClick={() => {
+                if (isAdminLoggedIn) {
+                  logoutAdmin();
+                } else {
+                  logoutCandidate();
+                }
+                if (setMobileOpen) setMobileOpen(false);
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition duration-150 mt-2 border border-rose-900/40"
+              title="Logout from system"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut size={18} className="text-rose-400" />
+                <span>Logout ({isAdminLoggedIn ? 'Admin' : isCandidateLoggedIn ? candidate.name : 'Doctor'})</span>
+              </div>
+              <span className="text-[10px] bg-rose-950 text-rose-300 px-2 py-0.5 rounded-full border border-rose-800/50">
+                Exit
+              </span>
+            </button>
           </nav>
         </div>
 
