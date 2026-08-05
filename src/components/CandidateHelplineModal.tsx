@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Headset, X, CheckCircle2, ShieldCheck, MessageSquare, Mail, ExternalLink } from 'lucide-react';
+import { Headset, X, CheckCircle2, ShieldCheck, Mail, ExternalLink, Minus, Maximize2 } from 'lucide-react';
 
 interface CandidateHelplineModalProps {
   isOpen: boolean;
@@ -10,6 +10,25 @@ interface CandidateHelplineModalProps {
 export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ isOpen, onClose }) => {
   const { helplineContacts } = useApp();
   const [activeFilter, setActiveFilter] = useState<'all' | 'whatsapp' | 'email'>('all');
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  // Keyboard shortcut listener for ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Reset minimized state when opened fresh
+  useEffect(() => {
+    if (isOpen) {
+      setIsMinimized(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -36,9 +55,53 @@ export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ 
     window.open(mailtoUrl, '_blank');
   };
 
+  // RENDER MINIMIZED FLOATING DESK WIDGET
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-5 right-5 z-50 animate-bounce-short">
+        <div className="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border border-emerald-500/50 text-white rounded-2xl shadow-2xl p-3.5 flex items-center gap-3 border-l-4 border-l-emerald-500">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
+            <Headset size={20} className="animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-extrabold text-white">Helpline Desk</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            </div>
+            <p className="text-[10px] text-emerald-200/80">Active ({availableHelplines.length} channels ready)</p>
+          </div>
+          <div className="flex items-center gap-1.5 ml-2 border-l border-slate-700/80 pl-2">
+            <button
+              onClick={() => setIsMinimized(false)}
+              className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition cursor-pointer flex items-center gap-1 text-[11px] font-bold px-2.5"
+              title="Expand Helpline Desk"
+            >
+              <Maximize2 size={13} />
+              <span>Expand</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              title="Close Helpline Desk"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // RENDER FULL MODAL SCREEN
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
         
         {/* Header Header Banner */}
         <div className="relative p-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-slate-900 text-white flex items-center justify-between">
@@ -59,26 +122,48 @@ export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ 
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer shrink-0"
-            aria-label="Close modal"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Minimize Button */}
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer flex items-center gap-1 text-xs font-bold px-3"
+              title="Minimize Helpline Desk to Dock"
+            >
+              <Minus size={16} />
+              <span className="hidden sm:inline">Minimize</span>
+            </button>
+
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/80 text-white transition cursor-pointer"
+              aria-label="Close modal"
+              title="Close Helpline Desk"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Security & Confidentiality Badge */}
-        <div className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300 font-medium">
-          <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
-          <span>Click any helpline channel logo below to directly connect with our Faculty Desk.</span>
+        <div className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+            <span>Click any helpline channel logo below to directly connect with our Faculty Desk.</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
+          >
+            Close Window [ESC]
+          </button>
         </div>
 
         {/* Channel Filters */}
         <div className="p-4 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
           <button
             onClick={() => setActiveFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
               activeFilter === 'all'
                 ? 'bg-slate-900 text-white dark:bg-emerald-600'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -89,7 +174,7 @@ export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ 
 
           <button
             onClick={() => setActiveFilter('whatsapp')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
               activeFilter === 'whatsapp'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
@@ -104,7 +189,7 @@ export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ 
 
           <button
             onClick={() => setActiveFilter('email')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
               activeFilter === 'email'
                 ? 'bg-blue-600 text-white'
                 : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100'
@@ -200,13 +285,21 @@ export const CandidateHelplineModal: React.FC<CandidateHelplineModalProps> = ({ 
         </div>
 
         {/* Modal Footer Note */}
-        <div className="p-4 px-6 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 text-center">
+        <div className="p-4 px-6 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
           <p className="text-[11px] text-slate-400">
-            Helpline active for candidate queries regarding FCPS, MS, MD, MRCS & Final Prof MBBS preparation.
+            Helpline active for candidate queries regarding FCPS, MS, MD, MRCS & Final Prof MBBS.
           </p>
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-300 transition cursor-pointer shrink-0 flex items-center gap-1 text-[11px]"
+          >
+            <Minus size={13} />
+            <span>Minimize Window</span>
+          </button>
         </div>
 
       </div>
     </div>
   );
 };
+

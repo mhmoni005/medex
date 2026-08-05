@@ -82,12 +82,12 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed lg:sticky top-[65px] left-0 z-30 h-[calc(100vh-65px)] w-64 bg-slate-900 dark:bg-slate-950 border-r border-slate-800 text-slate-300 p-4 flex flex-col justify-between transition-transform duration-300 ease-in-out ${
+        className={`fixed lg:sticky top-[65px] left-0 z-30 h-[calc(100vh-65px)] w-64 bg-slate-900 dark:bg-slate-950 border-r border-slate-800 text-slate-300 p-4 flex flex-col justify-between overflow-y-auto scroll-smooth transition-transform duration-300 ease-in-out shrink-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Role Status Box */}
-        <div className="space-y-4">
+        {/* Top Role Status Box & Navigation Links */}
+        <div className="space-y-4 flex-1 pb-4">
           {isAdminLoggedIn ? (
             <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-800/60 shadow-inner">
               <div className="flex items-center gap-2 mb-2">
@@ -183,7 +183,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
         </div>
 
         {/* Bottom Quick Help Card */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-800/40 text-xs space-y-2">
+        <div className="p-3.5 mt-auto rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-800/40 text-xs space-y-2 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
               <Headset size={16} className="text-emerald-300 animate-pulse" />
